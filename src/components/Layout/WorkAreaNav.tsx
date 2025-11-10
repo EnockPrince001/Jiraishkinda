@@ -13,6 +13,7 @@ const navItems = [
   { title: "List", icon: List, url: "/list" },
   { title: "Backlog", icon: FolderKanban, url: "/backlog" },
   { title: "Reports", icon: BarChart3, url: "/reports" },
+  { title: "Timeline", icon: BarChart3, url: "/timeline" },
 ];
 
 interface WorkAreaNavProps {
