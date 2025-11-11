@@ -1,4 +1,4 @@
-import { Search, Plus, Bell, HelpCircle, Settings, User, LogOut } from "lucide-react";
+import { Search, Plus, Bell, HelpCircle, Settings, User, LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -12,10 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 
 export function TopNavBar() {
   const { username, email, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -98,6 +100,19 @@ export function TopNavBar() {
                 <span>Account Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleTheme}>
+                {theme === 'light' ? (
+                  <>
+                    <Moon className="mr-2 h-4 w-4" />
+                    <span>Dark Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="mr-2 h-4 w-4" />
+                    <span>Light Mode</span>
+                  </>
+                )}
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <span>Switch Account</span>
               </DropdownMenuItem>
