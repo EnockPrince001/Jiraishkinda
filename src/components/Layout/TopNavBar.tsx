@@ -1,4 +1,4 @@
-import { Search, Plus, Bell, HelpCircle, Settings, User } from "lucide-react";
+import { Search, Plus, Bell, HelpCircle, Settings, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -11,8 +11,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export function TopNavBar() {
+  const { username, email, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
   return (
     <header className="sticky top-0 z-50 w-full border-b border-nav-border bg-nav">
       <div className="flex h-14 items-center gap-4 px-4">
@@ -67,13 +76,18 @@ export function TopNavBar() {
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    BE
+                    {username?.substring(0, 2).toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{username}</p>
+                  <p className="text-xs text-muted-foreground">{email}</p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
@@ -87,7 +101,8 @@ export function TopNavBar() {
               <DropdownMenuItem>
                 <span>Switch Account</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
