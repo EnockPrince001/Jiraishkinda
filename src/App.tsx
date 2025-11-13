@@ -7,6 +7,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import CreateSpacePage from "./pages/CreateSpacePage";
+import BoardPage from "./pages/BoardPage";
 import ListPage from "./pages/ListPage";
 import BacklogPage from "./pages/BacklogPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -37,7 +39,23 @@ const App = () => (
               }
             />
             <Route
-              path="/list"
+              path="/create-space"
+              element={
+                <ProtectedRoute>
+                  <CreateSpacePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/spaces/:spaceKey/board"
+              element={
+                <ProtectedRoute>
+                  <BoardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/spaces/:spaceKey/list"
               element={
                 <ProtectedRoute>
                   <ListPage />
@@ -45,7 +63,7 @@ const App = () => (
               }
             />
             <Route
-              path="/backlog"
+              path="/spaces/:spaceKey/backlog"
               element={
                 <ProtectedRoute>
                   <BacklogPage />
@@ -53,7 +71,7 @@ const App = () => (
               }
             />
             <Route
-              path="/reports"
+              path="/spaces/:spaceKey/reports"
               element={
                 <ProtectedRoute>
                   <ReportsPage />
@@ -61,7 +79,7 @@ const App = () => (
               }
             />
             <Route
-              path="/timeline"
+              path="/spaces/:spaceKey/timeline"
               element={
                 <ProtectedRoute>
                   <TimelinePage />

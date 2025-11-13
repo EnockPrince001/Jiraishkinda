@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,103 +20,160 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter, Plus } from "lucide-react";
-import type { WorkItem } from "@/types";
+import { getGraphQLClient } from "@/lib/graphql-client";
+import { useAuth } from "@/context/AuthContext";
+import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
+import { useToast } from "@/hooks/use-toast";
+
+interface Space {
+  id: string;
+  name: string;
+  key: string;
+  type: 'SCRUM' | 'KANBAN';
+}
+
+interface WorkItem {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  priority: string;
+  storyPoints?: number;
+  assignee?: { id: string; userName: string };
+  reporter: { id: string; userName: string };
+  createdDate: string;
+}
 
 export default function ListPage() {
-  const [workItems] = useState<WorkItem[]>([
-    {
-      id: "1",
-      key: "TASK-1",
-      summary: "Implement login page",
-      status: "IN PROGRESS",
-      priority: "HIGH",
-      assignee: "john@example.com",
-      reporter: "admin@example.com",
-      storyPoints: 5,
-      createdDate: "2025-01-10",
-      updatedDate: "2025-01-12",
-      comments: [],
-      subtasks: [],
-      flagged: false,
-    },
-    {
-      id: "2",
-      key: "TASK-2",
-      summary: "Create user dashboard",
-      status: "TO DO",
-      priority: "MEDIUM",
-      assignee: "jane@example.com",
-      reporter: "admin@example.com",
-      storyPoints: 8,
-      createdDate: "2025-01-11",
-      updatedDate: "2025-01-11",
-      comments: [],
-      subtasks: [],
-      flagged: false,
-    },
-  ]);
-
-  const [searchQuery, setSearchQuery] = useState("");
+  const { spaceKey } = useParams();
+  const [space, setSpace] = useState<Space | null>(null);
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const { token } = useAuth();
+  const { toast } = useToast();
 
-  const filteredItems = workItems.filter((item) => {
-    const matchesSearch =
-      item.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.summary.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!spaceKey) return;
+      
+      try {
+        const client = getGraphQLClient(token || undefined);
+        
+        const [spaceData, workItemsData]: any = await Promise.all([
+          client.request(GET_SPACE_DATA, { spaceKey }),
+          client.request(GET_WORK_ITEMS, { spaceKey }),
+        ]);
+
+        setSpace(spaceData.space);
+        setWorkItems(workItemsData.workItemsForSpace || []);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [spaceKey, token, toast]);
+
+  const filteredWorkItems = workItems.filter((item) => {
+    const matchesSearch = item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.key.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus;
   });
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'URGENT':
+        return 'destructive';
+      case 'HIGH':
+        return 'default';
+      case 'MEDIUM':
+        return 'secondary';
+      case 'LOW':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DONE':
+        return 'default';
+      case 'IN PROGRESS':
+        return 'secondary';
+      case 'TO DO':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  if (loading) {
+    return (
+      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!space) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Space not found</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
-    <MainLayout spaceName="POS QE TEAM">
+    <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">List</h1>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Work Item
+          <h1 className="text-2xl font-bold">Work Items</h1>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Issue
           </Button>
         </div>
 
         {/* Filters */}
         <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search work items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="TO DO">To Do</SelectItem>
               <SelectItem value="IN PROGRESS">In Progress</SelectItem>
               <SelectItem value="DONE">Done</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="LOW">Low</SelectItem>
-              <SelectItem value="MEDIUM">Medium</SelectItem>
-              <SelectItem value="HIGH">High</SelectItem>
-              <SelectItem value="URGENT">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Table */}
@@ -128,36 +186,34 @@ export default function ListPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Assignee</TableHead>
-                <TableHead>Story Points</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead>Reporter</TableHead>
+                <TableHead className="text-right">Story Points</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.map((item) => (
-                <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell className="font-mono text-sm">{item.key}</TableCell>
-                  <TableCell>{item.summary}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{item.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        item.priority === "URGENT" || item.priority === "HIGH"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                    >
-                      {item.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{item.assignee || "Unassigned"}</TableCell>
-                  <TableCell>{item.storyPoints || "-"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(item.updatedDate).toLocaleDateString()}
+              {filteredWorkItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No work items found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredWorkItems.map((item) => (
+                  <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell className="font-medium">{item.key}</TableCell>
+                    <TableCell>{item.summary}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusColor(item.status)}>{item.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getPriorityColor(item.priority)}>{item.priority}</Badge>
+                    </TableCell>
+                    <TableCell>{item.assignee?.userName || 'Unassigned'}</TableCell>
+                    <TableCell>{item.reporter.userName}</TableCell>
+                    <TableCell className="text-right">{item.storyPoints || '-'}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
