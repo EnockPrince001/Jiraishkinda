@@ -1,118 +1,138 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { WorkItem } from "@/types";
+import { CheckCircle2 } from "lucide-react";
+import { getGraphQLClient } from "@/lib/graphql-client";
+import { useAuth } from "@/context/AuthContext";
+import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
+import { useToast } from "@/hooks/use-toast";
+
+interface Space {
+  id: string;
+  name: string;
+  key: string;
+  type: 'SCRUM' | 'KANBAN';
+}
+
+interface WorkItem {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  priority: string;
+  assignee?: { id: string; userName: string };
+  updatedDate: string;
+}
 
 export default function TimelinePage() {
-  const [closedItems] = useState<WorkItem[]>([
-    {
-      id: "1",
-      key: "TASK-5",
-      summary: "User authentication system",
-      status: "DONE",
-      priority: "HIGH",
-      assignee: "john@example.com",
-      reporter: "admin@example.com",
-      storyPoints: 8,
-      sprintId: "sprint-1",
-      createdDate: "2025-01-05",
-      updatedDate: "2025-01-15",
-      comments: [],
-      subtasks: [],
-      flagged: false,
-    },
-  ]);
+  const { spaceKey } = useParams();
+  const [space, setSpace] = useState<Space | null>(null);
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
+  const { toast } = useToast();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sprintFilter, setSprintFilter] = useState<string>("all");
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!spaceKey) return;
+      
+      try {
+        const client = getGraphQLClient(token || undefined);
+        
+        const [spaceData, workItemsData]: any = await Promise.all([
+          client.request(GET_SPACE_DATA, { spaceKey }),
+          client.request(GET_WORK_ITEMS, { spaceKey }),
+        ]);
 
-  const filteredItems = closedItems.filter((item) => {
-    const matchesSearch =
-      item.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSprint = sprintFilter === "all" || item.sprintId === sprintFilter;
-    return matchesSearch && matchesSprint;
-  });
+        setSpace(spaceData.space);
+        // Filter only completed items and sort by update date
+        const completedItems = (workItemsData.workItemsForSpace || [])
+          .filter((item: WorkItem) => item.status === 'DONE')
+          .sort((a: WorkItem, b: WorkItem) => 
+            new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime()
+          );
+        setWorkItems(completedItems);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [spaceKey, token, toast]);
+
+  if (loading) {
+    return (
+      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!space) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Space not found</div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
-    <MainLayout spaceName="POS QE TEAM">
+    <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Timeline (Closed Sprints)</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Timeline</h1>
+          <p className="text-muted-foreground">Recently completed work items</p>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search work items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={sprintFilter} onValueChange={setSprintFilter}>
-            <SelectTrigger className="w-[200px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Sprint" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sprints</SelectItem>
-              <SelectItem value="sprint-1">Sprint 1</SelectItem>
-              <SelectItem value="sprint-2">Sprint 2</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Closed Items by Sprint */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sprint 1 - Completed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-mono text-muted-foreground">{item.key}</span>
-                      <span className="text-sm font-medium">{item.summary}</span>
-                      <Badge variant="outline">{item.status}</Badge>
-                      <Badge
-                        variant={
-                          item.priority === "URGENT" || item.priority === "HIGH"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                      >
-                        {item.priority}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{item.assignee || "Unassigned"}</span>
-                      <span>{item.storyPoints} pts</span>
-                      <span>Completed {new Date(item.updatedDate).toLocaleDateString()}</span>
+        <div className="space-y-4">
+          {workItems.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No completed items yet</p>
+              </CardContent>
+            </Card>
+          ) : (
+            workItems.map((item) => (
+              <Card key={item.id}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-1" />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-muted-foreground">{item.key}</span>
+                          <Badge variant="outline">{item.priority}</Badge>
+                        </div>
+                        <p className="font-medium">{item.summary}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>Completed {new Date(item.updatedDate).toLocaleDateString()}</span>
+                          {item.assignee && (
+                            <>
+                              <span>•</span>
+                              <span>{item.assignee.userName}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </MainLayout>

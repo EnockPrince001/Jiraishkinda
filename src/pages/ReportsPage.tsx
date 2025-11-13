@@ -1,187 +1,138 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from "recharts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getGraphQLClient } from "@/lib/graphql-client";
+import { useAuth } from "@/context/AuthContext";
+import { GET_SPACE_DATA } from "@/lib/queries";
+import { useToast } from "@/hooks/use-toast";
 
-const burnupData = [
-  { day: "Day 1", completed: 0, total: 50 },
-  { day: "Day 2", completed: 5, total: 50 },
-  { day: "Day 3", completed: 12, total: 52 },
-  { day: "Day 4", completed: 18, total: 52 },
-  { day: "Day 5", completed: 25, total: 55 },
-];
-
-const burndownData = [
-  { day: "Day 1", remaining: 50, ideal: 50 },
-  { day: "Day 2", remaining: 45, ideal: 40 },
-  { day: "Day 3", remaining: 38, ideal: 30 },
-  { day: "Day 4", remaining: 34, ideal: 20 },
-  { day: "Day 5", remaining: 25, ideal: 10 },
-];
-
-const velocityData = [
-  { sprint: "Sprint 1", committed: 45, completed: 42 },
-  { sprint: "Sprint 2", committed: 50, completed: 48 },
-  { sprint: "Sprint 3", committed: 48, completed: 45 },
-  { sprint: "Sprint 4", committed: 52, completed: 50 },
-];
-
-const cumulativeFlowData = [
-  { date: "Jan 1", "TO DO": 20, "IN PROGRESS": 5, DONE: 0 },
-  { date: "Jan 5", "TO DO": 22, "IN PROGRESS": 8, DONE: 3 },
-  { date: "Jan 10", "TO DO": 23, "IN PROGRESS": 10, DONE: 8 },
-  { date: "Jan 15", "TO DO": 20, "IN PROGRESS": 12, DONE: 15 },
-  { date: "Jan 20", "TO DO": 18, "IN PROGRESS": 10, DONE: 22 },
-];
+interface Space {
+  id: string;
+  name: string;
+  key: string;
+  type: 'SCRUM' | 'KANBAN';
+}
 
 export default function ReportsPage() {
-  const [selectedSprint, setSelectedSprint] = useState("sprint-1");
-  const [estimationField, setEstimationField] = useState("story-points");
+  const { spaceKey } = useParams();
+  const [space, setSpace] = useState<Space | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!spaceKey) return;
+      
+      try {
+        const client = getGraphQLClient(token || undefined);
+        const spaceData: any = await client.request(GET_SPACE_DATA, { spaceKey });
+        setSpace(spaceData.space);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [spaceKey, token, toast]);
+
+  // Sample data for charts
+  const burnupData = [
+    { day: 'Day 1', completed: 5, total: 50 },
+    { day: 'Day 2', completed: 12, total: 50 },
+    { day: 'Day 3', completed: 18, total: 50 },
+    { day: 'Day 4', completed: 25, total: 50 },
+    { day: 'Day 5', completed: 32, total: 50 },
+  ];
+
+  const velocityData = [
+    { sprint: 'Sprint 1', committed: 40, completed: 35 },
+    { sprint: 'Sprint 2', committed: 45, completed: 42 },
+    { sprint: 'Sprint 3', committed: 50, completed: 48 },
+    { sprint: 'Sprint 4', committed: 48, completed: 45 },
+  ];
+
+  if (loading) {
+    return (
+      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!space) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-lg">Space not found</div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
-    <MainLayout spaceName="POS QE TEAM">
-      <div className="p-6">
-        <h1 className="text-2xl font-semibold mb-6">Reports</h1>
+    <MainLayout spaceName={space.name} spaceType={space.type}>
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Reports</h1>
+          <p className="text-muted-foreground">Track your team's progress and performance</p>
+        </div>
 
-        <Tabs defaultValue="burnup" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="burnup">Burnup</TabsTrigger>
-            <TabsTrigger value="burndown">Burndown</TabsTrigger>
-            <TabsTrigger value="velocity">Velocity</TabsTrigger>
+        <Tabs defaultValue="burnup" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="burnup">Burnup Chart</TabsTrigger>
+            <TabsTrigger value="velocity">Velocity Chart</TabsTrigger>
             <TabsTrigger value="cumulative">Cumulative Flow</TabsTrigger>
           </TabsList>
 
-          {/* Burnup Report */}
-          <TabsContent value="burnup">
+          <TabsContent value="burnup" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Burnup Report</CardTitle>
-                <CardDescription>
-                  Visualize sprint's completed work and compare it with total scope
-                </CardDescription>
-                <div className="flex gap-4 pt-4">
-                  <div className="flex-1">
-                    <Label>Sprint</Label>
-                    <Select value={selectedSprint} onValueChange={setSelectedSprint}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sprint-1">Sprint 1</SelectItem>
-                        <SelectItem value="sprint-2">Sprint 2</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1">
-                    <Label>Estimation Field</Label>
-                    <Select value={estimationField} onValueChange={setEstimationField}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="story-points">Story Points</SelectItem>
-                        <SelectItem value="work-item-count">Work Item Count</SelectItem>
-                        <SelectItem value="time">Time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <CardTitle>Sprint Burnup Chart</CardTitle>
+                <CardDescription>Track completed work vs. total scope</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={burnupData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="completed" stroke="hsl(var(--primary))" name="Completed" />
-                    <Line type="monotone" dataKey="total" stroke="hsl(var(--muted-foreground))" name="Total Scope" />
+                    <Line type="monotone" dataKey="completed" stroke="hsl(var(--primary))" strokeWidth={2} name="Completed" />
+                    <Line type="monotone" dataKey="total" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="5 5" name="Total Scope" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Burndown Chart */}
-          <TabsContent value="burndown">
+          <TabsContent value="velocity" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Sprint Burndown Chart</CardTitle>
-                <CardDescription>
-                  Track total work remaining and likelihood of completing sprint on time
-                </CardDescription>
-                <div className="flex gap-4 pt-4">
-                  <div className="flex-1">
-                    <Label>Sprint</Label>
-                    <Select value={selectedSprint} onValueChange={setSelectedSprint}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sprint-1">Sprint 1</SelectItem>
-                        <SelectItem value="sprint-2">Sprint 2</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1">
-                    <Label>Estimation Field</Label>
-                    <Select value={estimationField} onValueChange={setEstimationField}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="story-points">Story Points</SelectItem>
-                        <SelectItem value="work-item-count">Work Item Count</SelectItem>
-                        <SelectItem value="time">Time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <CardTitle>Team Velocity</CardTitle>
+                <CardDescription>Story points committed vs. completed per sprint</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={burndownData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="remaining" stroke="hsl(var(--destructive))" name="Remaining Work" />
-                    <Line type="monotone" dataKey="ideal" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" name="Ideal Progress" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Velocity Report */}
-          <TabsContent value="velocity">
-            <Card>
-              <CardHeader>
-                <CardTitle>Velocity Report</CardTitle>
-                <CardDescription>
-                  Predict amount of work your team can commit to in future sprints
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={velocityData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="sprint" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="committed" fill="hsl(var(--muted))" name="Commitment" />
+                    <Bar dataKey="committed" fill="hsl(var(--muted))" name="Committed" />
                     <Bar dataKey="completed" fill="hsl(var(--primary))" name="Completed" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -189,26 +140,21 @@ export default function ReportsPage() {
             </Card>
           </TabsContent>
 
-          {/* Cumulative Flow Diagram */}
-          <TabsContent value="cumulative">
+          <TabsContent value="cumulative" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Cumulative Flow Diagram</CardTitle>
-                <CardDescription>
-                  Shows statuses of work items over time to identify bottlenecks
-                </CardDescription>
+                <CardDescription>Work item distribution over time</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={cumulativeFlowData}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={burnupData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
+                    <XAxis dataKey="day" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Area type="monotone" dataKey="TO DO" stackId="1" stroke="hsl(var(--muted-foreground))" fill="hsl(var(--muted))" />
-                    <Area type="monotone" dataKey="IN PROGRESS" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.5)" />
-                    <Area type="monotone" dataKey="DONE" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" />
+                    <Area type="monotone" dataKey="completed" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" name="Completed" />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>

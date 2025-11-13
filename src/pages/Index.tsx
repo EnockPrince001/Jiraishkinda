@@ -72,7 +72,7 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button size="lg" className="w-full gap-2">
+                <Button size="lg" className="w-full gap-2" onClick={() => navigate('/create-space')}>
                   <Plus className="h-5 w-5" />
                   Create Space
                 </Button>

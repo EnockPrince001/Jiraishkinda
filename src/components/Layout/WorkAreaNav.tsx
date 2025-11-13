@@ -1,6 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import { LayoutGrid, List, FolderKanban, BarChart3, MoreHorizontal, Share2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useParams } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,19 +9,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navItems = [
-  { title: "Board", icon: LayoutGrid, url: "/" },
-  { title: "List", icon: List, url: "/list" },
-  { title: "Backlog", icon: FolderKanban, url: "/backlog" },
-  { title: "Reports", icon: BarChart3, url: "/reports" },
-  { title: "Timeline", icon: BarChart3, url: "/timeline" },
-];
-
 interface WorkAreaNavProps {
   spaceName?: string;
+  spaceType?: 'SCRUM' | 'KANBAN';
 }
 
-export function WorkAreaNav({ spaceName = "POS QE TEAM" }: WorkAreaNavProps) {
+export function WorkAreaNav({ spaceName = "POS QE TEAM", spaceType = "SCRUM" }: WorkAreaNavProps) {
+  const { spaceKey } = useParams();
+  
+  const navItems = [
+    { title: "Board", icon: LayoutGrid, url: `/spaces/${spaceKey}/board` },
+    { title: "List", icon: List, url: `/spaces/${spaceKey}/list` },
+    ...(spaceType === 'SCRUM' ? [{ title: "Backlog", icon: FolderKanban, url: `/spaces/${spaceKey}/backlog` }] : []),
+    { title: "Reports", icon: BarChart3, url: `/spaces/${spaceKey}/reports` },
+    { title: "Timeline", icon: BarChart3, url: `/spaces/${spaceKey}/timeline` },
+  ];
+
   return (
     <div className="border-b border-nav-border bg-nav">
       <div className="px-4 py-2">
@@ -28,7 +32,7 @@ export function WorkAreaNav({ spaceName = "POS QE TEAM" }: WorkAreaNavProps) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded bg-blue-500">
-              <span className="text-xs font-bold text-white">P</span>
+              <span className="text-xs font-bold text-white">{spaceName.charAt(0).toUpperCase()}</span>
             </div>
             <h2 className="text-lg font-semibold">{spaceName}</h2>
             <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -69,8 +73,8 @@ export function WorkAreaNav({ spaceName = "POS QE TEAM" }: WorkAreaNavProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem>Timeline</DropdownMenuItem>
               <DropdownMenuItem>Forms</DropdownMenuItem>
+              <DropdownMenuItem>Settings</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
