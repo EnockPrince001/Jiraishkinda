@@ -1,6 +1,5 @@
 import { Home, Layout, List, Folder, BarChart3, ChevronRight, Plus } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom"; // 1. IMPORT useNavigate
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +27,7 @@ const navItems = [
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate(); // 2. INITIALIZE the navigate function
 
   return (
     <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
@@ -62,7 +62,13 @@ export function AppSidebar() {
               {open && "Spaces"}
             </SidebarGroupLabel>
             {open && (
-              <Button variant="ghost" size="icon" className="h-5 w-5">
+              // 3. ADD the onClick handler here
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={() => navigate('/create-space')}
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             )}
