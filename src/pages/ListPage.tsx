@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
+import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,33 +55,34 @@ export default function ListPage() {
   const { token } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!spaceKey) return;
+  const fetchData = async () => {
+    if (!spaceKey) return;
+    
+    try {
+      setLoading(true);
+      const client = getGraphQLClient(token || undefined);
       
-      try {
-        const client = getGraphQLClient(token || undefined);
-        
-        const [spaceData, workItemsData]: any = await Promise.all([
-          client.request(GET_SPACE_DATA, { spaceKey }),
-          client.request(GET_WORK_ITEMS, { spaceKey }),
-        ]);
+      const [spaceData, workItemsData]: any = await Promise.all([
+        client.request(GET_SPACE_DATA, { spaceKey }),
+        client.request(GET_WORK_ITEMS, { spaceKey }),
+      ]);
 
-        setSpace(spaceData.space);
-        setWorkItems(workItemsData.workItemsForSpace || []);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      setSpace(spaceData.space);
+      setWorkItems(workItemsData.workItemsForSpace || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
-  }, [spaceKey, token, toast]);
+  }, [spaceKey, token]);
 
   const filteredWorkItems = workItems.filter((item) => {
     const matchesSearch = item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -143,10 +145,7 @@ export default function ListPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Work Items</h1>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create Issue
-          </Button>
+          <CreateWorkItemDialog spaceId={space.id} onSuccess={fetchData} />
         </div>
 
         {/* Filters */}

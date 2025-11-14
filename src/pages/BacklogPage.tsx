@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
+import { CreateSprintDialog } from "@/components/CreateSprintDialog";
+import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, ChevronRight } from "lucide-react";
@@ -46,33 +48,34 @@ export default function BacklogPage() {
   const { token } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!spaceKey) return;
+  const fetchData = async () => {
+    if (!spaceKey) return;
+    
+    try {
+      setLoading(true);
+      const client = getGraphQLClient(token || undefined);
       
-      try {
-        const client = getGraphQLClient(token || undefined);
-        
-        const [spaceData, workItemsData]: any = await Promise.all([
-          client.request(GET_SPACE_DATA, { spaceKey }),
-          client.request(GET_WORK_ITEMS, { spaceKey }),
-        ]);
+      const [spaceData, workItemsData]: any = await Promise.all([
+        client.request(GET_SPACE_DATA, { spaceKey }),
+        client.request(GET_WORK_ITEMS, { spaceKey }),
+      ]);
 
-        setSpace(spaceData.space);
-        setWorkItems(workItemsData.workItemsForSpace || []);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      setSpace(spaceData.space);
+      setWorkItems(workItemsData.workItemsForSpace || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
-  }, [spaceKey, token, toast]);
+  }, [spaceKey, token]);
 
   const backlogItems = workItems.filter(item => !item.sprintId);
   const activeSprint = space?.sprints?.find(s => s.status === 'ACTIVE');
@@ -107,14 +110,8 @@ export default function BacklogPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Backlog</h1>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Sprint
-            </Button>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Issue
-            </Button>
+            <CreateSprintDialog spaceId={space.id} onSuccess={fetchData} />
+            <CreateWorkItemDialog spaceId={space.id} onSuccess={fetchData} />
           </div>
         </div>
 

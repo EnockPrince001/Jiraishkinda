@@ -1,5 +1,7 @@
-import { Home, Layout, List, Folder, BarChart3, ChevronRight, Plus } from "lucide-react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom"; // 1. IMPORT useNavigate
+import { Home, Layout, Folder, ChevronRight, Plus } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { NavLink } from "@/components/NavLink";
+import { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,22 +14,50 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { getGraphQLClient } from "@/lib/graphql-client";
+import { useAuth } from "@/context/AuthContext";
+import { GET_ME } from "@/lib/queries";
 
-const spaces = [
-  { name: "POS QE TEAM", icon: Home, color: "bg-blue-500" },
-  { name: "Sababisha POS", icon: Folder, color: "bg-cyan-500" },
-];
+interface Space {
+  role: string;
+  space: {
+    id: string;
+    name: string;
+    key: string;
+    type: 'SCRUM' | 'KANBAN';
+  };
+}
 
 const navItems = [
   { title: "For you", icon: Home, url: "/" },
-  { title: "Recent", icon: Layout, url: "/recent" },
-  { title: "Starred", icon: Layout, url: "/starred" },
 ];
 
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
-  const navigate = useNavigate(); // 2. INITIALIZE the navigate function
+  const navigate = useNavigate();
+  const { token } = useAuth();
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [showAllSpaces, setShowAllSpaces] = useState(false);
+
+  useEffect(() => {
+    const fetchSpaces = async () => {
+      try {
+        const client = getGraphQLClient(token || undefined);
+        const data: any = await client.request(GET_ME);
+        setSpaces(data.getMe.spaces || []);
+      } catch (error) {
+        console.error("Failed to fetch spaces:", error);
+      }
+    };
+
+    if (token) {
+      fetchSpaces();
+    }
+  }, [token]);
+
+  const displayedSpaces = showAllSpaces ? spaces : spaces.slice(0, 3);
+  const hasMoreSpaces = spaces.length > 3;
 
   return (
     <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
@@ -75,52 +105,50 @@ export function AppSidebar() {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarGroupLabel className="text-xs font-normal text-muted-foreground px-3">
-                  {open && "Recent"}
-                </SidebarGroupLabel>
-              </SidebarMenuItem>
-              {spaces.map((space) => (
-                <SidebarMenuItem key={space.name}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={`/space/${space.name.toLowerCase().replace(/\s+/g, "-")}`}
-                      className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <div className={`h-5 w-5 rounded flex items-center justify-center ${space.color}`}>
-                        <space.icon className="h-3 w-3 text-white" />
-                      </div>
-                      {open && <span className="truncate">{space.name}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
+              {displayedSpaces.length > 0 && (
+                <SidebarMenuItem>
+                  <SidebarGroupLabel className="text-xs font-normal text-muted-foreground px-3">
+                    {open && "Recent"}
+                  </SidebarGroupLabel>
                 </SidebarMenuItem>
-              ))}
+              )}
+              {displayedSpaces.map((item) => {
+                const bgColors = ['bg-blue-500', 'bg-cyan-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500'];
+                const randomColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+                
+                return (
+                  <SidebarMenuItem key={item.space.id}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={`/spaces/${item.space.key}/board`}
+                        className="hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      >
+                        <div className={`h-5 w-5 rounded flex items-center justify-center ${randomColor}`}>
+                          <Folder className="h-3 w-3 text-white" />
+                        </div>
+                        {open && <span className="truncate">{item.space.name}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {/* Additional Navigation */}
-        {open && (
+        {open && hasMoreSpaces && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton className="text-muted-foreground hover:bg-sidebar-accent">
-                    <ChevronRight className="h-4 w-4" />
-                    <span>More spaces</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton className="text-muted-foreground hover:bg-sidebar-accent">
-                    <Layout className="h-4 w-4" />
-                    <span>Browse templates</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton className="text-muted-foreground hover:bg-sidebar-accent">
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Dashboards</span>
+                  <SidebarMenuButton 
+                    onClick={() => setShowAllSpaces(!showAllSpaces)}
+                    className="text-muted-foreground hover:bg-sidebar-accent"
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${showAllSpaces ? 'rotate-90' : ''}`} />
+                    <span>{showAllSpaces ? 'Show less' : `More spaces (${spaces.length - 3})`}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
