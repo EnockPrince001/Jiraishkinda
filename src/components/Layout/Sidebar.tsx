@@ -45,16 +45,16 @@ export function AppSidebar() {
       try {
         const client = getGraphQLClient(token || undefined);
         const data: any = await client.request(GET_ME);
-        setSpaces(data.getMe.spaces || []);
-      } catch (error) {
+setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
         console.error("Failed to fetch spaces:", error);
+        // Optionally, setSpaces([]) here too if the API call fails
+        // setSpaces([]);
       }
     };
 
-    if (token) {
-      fetchSpaces();
-    }
-  }, [token]);
+    // Fetch spaces when the component mounts and whenever the token changes
+    fetchSpaces();
+  }, [token]); 
 
   const displayedSpaces = showAllSpaces ? spaces : spaces.slice(0, 3);
   const hasMoreSpaces = spaces.length > 3;

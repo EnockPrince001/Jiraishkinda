@@ -42,7 +42,7 @@ export function CreateWorkItemDialog({
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
-  const [status, setStatus] = useState(defaultStatus || "TO DO");
+  const [status, setStatus] = useState(defaultStatus || "TO_DO");
   const [loading, setLoading] = useState(false);
   const { token } = useAuth();
   const { toast } = useToast();
@@ -137,8 +137,8 @@ export function CreateWorkItemDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TO DO">To Do</SelectItem>
-                  <SelectItem value="IN PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="TO_DO">To Do</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                   <SelectItem value="DONE">Done</SelectItem>
                 </SelectContent>
               </Select>

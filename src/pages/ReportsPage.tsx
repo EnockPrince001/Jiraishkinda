@@ -30,7 +30,7 @@ export default function ReportsPage() {
       try {
         const client = getGraphQLClient(token || undefined);
         const spaceData: any = await client.request(GET_SPACE_DATA, { spaceKey });
-        setSpace(spaceData.space);
+        setSpace(spaceData.space?.[0] || null);
       } catch (error: any) {
         toast({
           title: "Error",

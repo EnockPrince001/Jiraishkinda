@@ -67,7 +67,7 @@ export default function ListPage() {
         client.request(GET_WORK_ITEMS, { spaceKey }),
       ]);
 
-      setSpace(spaceData.space);
+      setSpace(spaceData.space?.[0] || null);
       setWorkItems(workItemsData.workItemsForSpace || []);
     } catch (error: any) {
       toast({

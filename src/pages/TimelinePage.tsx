@@ -46,7 +46,7 @@ export default function TimelinePage() {
           client.request(GET_WORK_ITEMS, { spaceKey }),
         ]);
 
-        setSpace(spaceData.space);
+        setSpace(spaceData.space?.[0] || null);
         // Filter only completed items and sort by update date
         const completedItems = (workItemsData.workItemsForSpace || [])
           .filter((item: WorkItem) => item.status === 'DONE')

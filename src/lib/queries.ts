@@ -2,7 +2,7 @@ import { gql } from 'graphql-request';
 
 export const GET_ME = gql`
   query {
-    getMe {
+    me {
       id
       userName
       email
