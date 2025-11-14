@@ -8,11 +8,16 @@ import { GET_ME } from "@/lib/queries";
 
 const Index = () => {
   const [loading, setLoading] = useState(true);
-  const { token } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserSpaces = async () => {
+      // Wait for auth to finish loading
+      if (authLoading) {
+        return;
+      }
+
       if (!token) {
         setLoading(false);
         return;
@@ -24,7 +29,7 @@ const Index = () => {
         const userSpaces = data.getMe.spaces || [];
         
         if (userSpaces.length > 0) {
-          // Redirect to first space's board
+          // Redirect to most recent space's board
           navigate(`/spaces/${userSpaces[0].space.key}/board`, { replace: true });
         } else {
           setLoading(false);
@@ -36,7 +41,7 @@ const Index = () => {
     };
 
     fetchUserSpaces();
-  }, [token, navigate]);
+  }, [token, authLoading, navigate]);
 
   if (loading) {
     return (
