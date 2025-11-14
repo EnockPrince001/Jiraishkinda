@@ -1,6 +1,4 @@
-import { MainLayout } from "@/components/Layout/MainLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,127 +6,86 @@ import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_ME } from "@/lib/queries";
 
-interface Space {
-  id: string;
-  name: string;
-  key: string;
-  type: string;
-}
-
-interface UserSpace {
-  role: string;
-  space: Space;
-}
-
 const Index = () => {
-  const [spaces, setSpaces] = useState<UserSpace[]>([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchSpaces = async () => {
+    const fetchUserSpaces = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const client = getGraphQLClient(token || undefined);
+        const client = getGraphQLClient(token);
         const data: any = await client.request(GET_ME);
-        setSpaces(data.getMe.spaces || []);
+        const userSpaces = data.getMe.spaces || [];
+        
+        if (userSpaces.length > 0) {
+          // Redirect to first space's board
+          navigate(`/spaces/${userSpaces[0].space.key}/board`, { replace: true });
+        } else {
+          setLoading(false);
+        }
       } catch (error) {
-        console.error('Failed to fetch spaces:', error);
-      } finally {
+        console.error("Failed to fetch user spaces:", error);
         setLoading(false);
       }
     };
 
-    fetchSpaces();
-  }, [token]);
+    fetchUserSpaces();
+  }, [token, navigate]);
 
   if (loading) {
     return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg">Loading...</div>
-        </div>
-      </MainLayout>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-lg">Loading...</div>
+      </div>
     );
   }
 
-  if (spaces.length === 0) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] p-8">
-          <div className="max-w-2xl w-full text-center space-y-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">Welcome to Worknest</h1>
-              <p className="text-muted-foreground text-lg">
-                Get started by creating your first space or wait for an invitation
-              </p>
-            </div>
-            
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Create your first space</CardTitle>
-                <CardDescription>
-                  Spaces help you organize work and collaborate with your team
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button size="lg" className="w-full gap-2" onClick={() => navigate('/create-space')}>
-                  <Plus className="h-5 w-5" />
-                  Create Space
-                </Button>
-              </CardContent>
-            </Card>
+  // This shouldn't be reached if user has spaces since useEffect redirects
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
+      <div className="max-w-4xl w-full space-y-8 text-center">
+        <div className="space-y-4">
+          <h1 className="text-4xl font-bold">Welcome to WorkNest</h1>
+          <p className="text-xl text-muted-foreground">
+            Get started by creating your first space
+          </p>
+        </div>
 
-            <div className="pt-8 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Or explore these helpful resources:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-base">Documentation</CardTitle>
-                    <CardDescription className="text-sm">
-                      Learn how to use Worknest
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-base">Templates</CardTitle>
-                    <CardDescription className="text-sm">
-                      Start with pre-built templates
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardHeader>
-                    <CardTitle className="text-base">Support</CardTitle>
-                    <CardDescription className="text-sm">
-                      Get help from our team
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+        <div className="grid md:grid-cols-2 gap-6 mt-12">
+          <button
+            onClick={() => navigate('/create-space')}
+            className="p-8 border-2 border-dashed rounded-lg hover:border-primary hover:bg-accent transition-colors text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <Plus className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Create Space</h3>
+                <p className="text-sm text-muted-foreground">
+                  Start a new project workspace
+                </p>
               </div>
             </div>
+          </button>
+
+          <div className="p-8 border rounded-lg bg-muted/50">
+            <h3 className="font-semibold text-lg mb-4">Quick Links</h3>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>• Documentation</li>
+              <li>• Templates</li>
+              <li>• Support</li>
+            </ul>
           </div>
         </div>
-      </MainLayout>
-    );
-  }
-
-  // If user has spaces, navigate to first space
-  useEffect(() => {
-    if (spaces.length > 0) {
-      navigate(`/spaces/${spaces[0].space.key}/board`);
-    }
-  }, [spaces, navigate]);
-
-  return (
-    <MainLayout>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-lg">Redirecting...</div>
       </div>
-    </MainLayout>
+    </div>
   );
 };
 

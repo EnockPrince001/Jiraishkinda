@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
+import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
@@ -30,33 +33,34 @@ export default function BoardPage() {
   const { token } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!spaceKey) return;
+  const fetchData = async () => {
+    if (!spaceKey) return;
+    
+    try {
+      setLoading(true);
+      const client = getGraphQLClient(token || undefined);
       
-      try {
-        const client = getGraphQLClient(token || undefined);
-        
-        const [spaceData, workItemsData]: any = await Promise.all([
-          client.request(GET_SPACE_DATA, { spaceKey }),
-          client.request(GET_WORK_ITEMS, { spaceKey }),
-        ]);
+      const [spaceData, workItemsData]: any = await Promise.all([
+        client.request(GET_SPACE_DATA, { spaceKey }),
+        client.request(GET_WORK_ITEMS, { spaceKey }),
+      ]);
 
-        setSpace(spaceData.space);
-        setWorkItems(workItemsData.workItemsForSpace || []);
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      setSpace(spaceData.space);
+      setWorkItems(workItemsData.workItemsForSpace || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
-  }, [spaceKey, token, toast]);
+  }, [spaceKey, token]);
 
   if (loading) {
     return (
@@ -90,13 +94,25 @@ export default function BoardPage() {
         <div className="grid grid-cols-3 gap-4">
           {columns.map((column) => (
             <div key={column.id} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">{column.title}</h3>
-                <span className="text-sm text-muted-foreground">
-                  {workItems.filter((item) => item.status === column.id).length}
-                </span>
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold">{column.title}</h3>
+                  <span className="text-sm text-muted-foreground">
+                    {workItems.filter((item) => item.status === column.id).length}
+                  </span>
+                </div>
+                <CreateWorkItemDialog 
+                  spaceId={space.id} 
+                  onSuccess={fetchData}
+                  defaultStatus={column.id}
+                  trigger={
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  }
+                />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-h-[200px]">
                 {workItems
                   .filter((item) => item.status === column.id)
                   .map((item) => (
