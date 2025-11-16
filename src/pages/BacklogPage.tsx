@@ -4,36 +4,51 @@ import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import { CreateSprintDialog } from "@/components/CreateSprintDialog";
 import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
+import { EditSprintDialog } from "@/components/EditSprintDialog";
+import { WorkItemOptionsMenu } from "@/components/WorkItemOptionsMenu";
+import { AssigneeSelect } from "@/components/AssigneeSelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChevronRight } from "lucide-react";
+import { Play, CheckCircle2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Import dropdown components if not already
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Space {
   id: string;
   name: string;
   key: string;
   type: 'SCRUM' | 'KANBAN';
-  sprints: Sprint[]; // Include sprints array
+  sprints: Sprint[];
+  members: Member[];
 }
 
 interface Sprint {
   id: string;
   name: string;
-  status: string; // e.g., 'PLANNED', 'ACTIVE', 'COMPLETED'
+  status: string;
   startDate?: string;
   endDate?: string;
   goal?: string;
+}
+
+interface Member {
+  user: {
+    id: string;
+    userName: string;
+  };
 }
 
 interface WorkItem {
@@ -45,6 +60,7 @@ interface WorkItem {
   storyPoints?: number;
   sprintId?: string;
   assignee?: { id: string; userName: string };
+  flagged: boolean;
 }
 
 export default function BacklogPage() {
@@ -52,6 +68,8 @@ export default function BacklogPage() {
   const [space, setSpace] = useState<Space | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
+  const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -81,6 +99,62 @@ export default function BacklogPage() {
     }
   };
 
+  const handleStartSprint = async (sprintId: string) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+      await client.request(START_SPRINT, { sprintId });
+      toast({
+        title: "Success",
+        description: "Sprint started successfully",
+      });
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start sprint",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCompleteSprint = async (sprintId: string) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+      await client.request(COMPLETE_SPRINT, { sprintId });
+      toast({
+        title: "Success",
+        description: "Sprint completed successfully",
+      });
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete sprint",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSprint = async () => {
+    if (!deletingSprintId) return;
+    try {
+      const client = getGraphQLClient(token || undefined);
+      await client.request(DELETE_SPRINT, { sprintId: deletingSprintId });
+      toast({
+        title: "Success",
+        description: "Sprint deleted successfully",
+      });
+      setDeletingSprintId(null);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete sprint",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [spaceKey, token]);
@@ -105,9 +179,8 @@ export default function BacklogPage() {
     );
   }
 
-  // Separate backlog items (not assigned to any sprint) and group sprint items
   const backlogItems = workItems.filter(item => !item.sprintId);
-  const allSprints = space?.sprints || [];
+  const allSprints = space?.sprints.filter(s => s.status !== 'COMPLETED') || [];
 
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
@@ -121,47 +194,58 @@ export default function BacklogPage() {
           </div>
         </div>
 
-        {/* Render all sprints */}
         {allSprints.map((sprint) => {
-          // Filter work items belonging to this specific sprint
           const sprintItems = workItems.filter(item => item.sprintId === sprint.id);
 
           return (
-            <Card key={sprint.id} className="mb-4"> {/* Added mb-4 for spacing between cards */}
+            <Card key={sprint.id} className="mb-4">
               <CardHeader>
-                <div className="flex items-start justify-between"> {/* Changed from center to start for vertical alignment */}
-                  <div className="flex items-start gap-3"> {/* Changed from center to start for vertical alignment */}
-                    <ChevronRight className="h-5 w-5 mt-1" /> {/* Added mt-1 for vertical alignment */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <ChevronRight className="h-5 w-5 mt-1" />
                     <div>
-                      <CardTitle className="text-xl">{sprint.name}</CardTitle> {/* Increased text size */}
-                      <CardDescription className="mt-1"> {/* Added mt-1 for spacing */}
-                        Status: <span className="font-medium">{sprint.status}</span> {/* Made status bold */}
+                      <CardTitle className="text-xl">{sprint.name}</CardTitle>
+                      <CardDescription className="mt-1">
+                        Status: <span className="font-medium">{sprint.status}</span>
                         {sprint.startDate && sprint.endDate && (
                           <>
                             {" "}({new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()})
                           </>
                         )}
                         {sprint.goal && (
-                          <p className="text-sm text-muted-foreground mt-1">{sprint.goal}</p> 
-                                                )}
+                          <p className="text-sm text-muted-foreground mt-1">{sprint.goal}</p>
+                        )}
                       </CardDescription>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Example Dropdown for Sprint Actions (Move, Edit, Delete) */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <span className="sr-only">Sprint Actions</span>
-                          <ChevronRight className="h-4 w-4 rotate-90" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => console.log("Edit Sprint", sprint.id)}>Edit Sprint</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => console.log("Delete Sprint", sprint.id)}>Delete Sprint</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Badge variant={sprint.status === 'ACTIVE' ? 'default' : sprint.status === 'PLANNED' ? 'secondary' : 'outline'}>
+                    {sprint.status === 'PLANNED' && (
+                      <Button size="sm" variant="default" onClick={() => handleStartSprint(sprint.id)}>
+                        <Play className="h-4 w-4 mr-1" />
+                        Start Sprint
+                      </Button>
+                    )}
+                    {sprint.status === 'ACTIVE' && (
+                      <Button size="sm" variant="default" onClick={() => handleCompleteSprint(sprint.id)}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Complete Sprint
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingSprint(sprint)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeletingSprintId(sprint.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Badge variant={sprint.status === 'ACTIVE' ? 'default' : 'secondary'}>
                       {sprint.status}
                     </Badge>
                   </div>
@@ -175,10 +259,10 @@ export default function BacklogPage() {
                     sprintItems.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                        className="p-3 border rounded-lg hover:bg-muted/50"
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                             <span className="text-sm">{item.summary}</span>
                           </div>
@@ -187,11 +271,18 @@ export default function BacklogPage() {
                             {item.storyPoints && (
                               <Badge variant="secondary">{item.storyPoints} SP</Badge>
                             )}
-                            {item.assignee && (
-                              <span className="text-xs text-muted-foreground">
-                                {item.assignee.userName}
-                              </span>
-                            )}
+                            <AssigneeSelect
+                              itemId={item.id}
+                              currentAssigneeId={item.assignee?.id}
+                              members={space?.members || []}
+                              onSuccess={fetchData}
+                            />
+                            <WorkItemOptionsMenu
+                              item={item}
+                              sprints={allSprints}
+                              allItems={sprintItems}
+                              onSuccess={fetchData}
+                            />
                           </div>
                         </div>
                       </div>
@@ -224,10 +315,10 @@ export default function BacklogPage() {
                 backlogItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                    className="p-3 border rounded-lg hover:bg-muted/50"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                         <span className="text-sm">{item.summary}</span>
                       </div>
@@ -236,11 +327,18 @@ export default function BacklogPage() {
                         {item.storyPoints && (
                           <Badge variant="secondary">{item.storyPoints} SP</Badge>
                         )}
-                        {item.assignee && (
-                          <span className="text-xs text-muted-foreground">
-                            {item.assignee.userName}
-                          </span>
-                        )}
+                        <AssigneeSelect
+                          itemId={item.id}
+                          currentAssigneeId={item.assignee?.id}
+                          members={space?.members || []}
+                          onSuccess={fetchData}
+                        />
+                        <WorkItemOptionsMenu
+                          item={item}
+                          sprints={allSprints}
+                          allItems={backlogItems}
+                          onSuccess={fetchData}
+                        />
                       </div>
                     </div>
                   </div>
@@ -250,6 +348,32 @@ export default function BacklogPage() {
           </CardContent>
         </Card>
       </div>
+
+      {editingSprint && (
+        <EditSprintDialog
+          sprint={editingSprint}
+          open={!!editingSprint}
+          onOpenChange={(open) => !open && setEditingSprint(null)}
+          onSuccess={fetchData}
+        />
+      )}
+
+      <AlertDialog open={!!deletingSprintId} onOpenChange={(open) => !open && setDeletingSprintId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Sprint?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this sprint? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSprint} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

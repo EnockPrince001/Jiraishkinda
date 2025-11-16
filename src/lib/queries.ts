@@ -121,3 +121,80 @@ export const INVITE_USER_TO_SPACE = gql`
     }
   }
 `;
+
+export const UPDATE_SPRINT = gql`
+  mutation UpdateSprint($sprintId: UUID!, $input: UpdateSprintInput!) {
+    updateSprint(sprintId: $sprintId, input: $input) {
+      id
+      name
+      status
+      startDate
+      endDate
+      goal
+    }
+  }
+`;
+
+export const DELETE_SPRINT = gql`
+  mutation DeleteSprint($sprintId: UUID!) {
+    deleteSprint(sprintId: $sprintId) {
+      id
+    }
+  }
+`;
+
+export const START_SPRINT = gql`
+  mutation StartSprint($sprintId: UUID!) {
+    startSprint(sprintId: $sprintId) {
+      id
+      status
+    }
+  }
+`;
+
+export const COMPLETE_SPRINT = gql`
+  mutation CompleteSprint($sprintId: UUID!) {
+    completeSprint(sprintId: $sprintId) {
+      id
+      status
+    }
+  }
+`;
+
+export const DELETE_WORK_ITEM = gql`
+  mutation DeleteWorkItem($itemId: UUID!) {
+    deleteWorkItem(workItemId: $itemId) {
+      id
+    }
+  }
+`;
+
+export const MOVE_WORK_ITEM = gql`
+  mutation MoveWorkItem($itemId: UUID!, $sprintId: UUID) {
+    updateWorkItem(workItemId: $itemId, input: { sprintId: $sprintId }) {
+      id
+      sprintId
+    }
+  }
+`;
+
+export const UPDATE_WORK_ITEM_ASSIGNEE = gql`
+  mutation UpdateWorkItemAssignee($itemId: UUID!, $assigneeId: UUID) {
+    updateWorkItem(workItemId: $itemId, input: { assigneeId: $assigneeId }) {
+      id
+      assignee {
+        id
+        userName
+      }
+    }
+  }
+`;
+
+export const TOGGLE_WORK_ITEM_FLAG = gql`
+  mutation ToggleWorkItemFlag($itemId: UUID!, $flagged: Boolean!) {
+    updateWorkItem(workItemId: $itemId, input: { flagged: $flagged }) {
+      id
+      flagged
+    }
+  }
+`;
