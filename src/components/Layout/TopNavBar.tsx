@@ -68,7 +68,7 @@ export function TopNavBar() {
             <HelpCircle className="h-5 w-5" />
           </Button>
 
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings/spaces")}>
             <Settings className="h-5 w-5" />
           </Button>
 

@@ -31,6 +31,7 @@ export const GET_SPACE_DATA = gql`
         user {
           id
           userName
+          email
         }
       }
       sprints {
