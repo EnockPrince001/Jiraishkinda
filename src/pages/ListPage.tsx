@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
+import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,16 +53,17 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const { token } = useAuth();
   const { toast } = useToast();
 
   const fetchData = async () => {
     if (!spaceKey) return;
-    
+
     try {
       setLoading(true);
       const client = getGraphQLClient(token || undefined);
-      
+
       const [spaceData, workItemsData]: any = await Promise.all([
         client.request(GET_SPACE_DATA, { spaceKey }),
         client.request(GET_WORK_ITEMS, { spaceKey }),
@@ -86,7 +88,7 @@ export default function ListPage() {
 
   const filteredWorkItems = workItems.filter((item) => {
     const matchesSearch = item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.key.toLowerCase().includes(searchTerm.toLowerCase());
+      item.key.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -198,7 +200,11 @@ export default function ListPage() {
                 </TableRow>
               ) : (
                 filteredWorkItems.map((item) => (
-                  <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow
+                    key={item.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setSelectedWorkItemId(item.id)}
+                  >
                     <TableCell className="font-medium">{item.key}</TableCell>
                     <TableCell>{item.summary}</TableCell>
                     <TableCell>
@@ -217,6 +223,13 @@ export default function ListPage() {
           </Table>
         </div>
       </div>
+
+      <EditWorkItemDialog
+        workItemId={selectedWorkItemId}
+        open={!!selectedWorkItemId}
+        onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
+        onSuccess={fetchData}
+      />
     </MainLayout>
   );
 }

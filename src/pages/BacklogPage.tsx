@@ -5,6 +5,7 @@ import { MainLayout } from "@/components/Layout/MainLayout";
 import { CreateSprintDialog } from "@/components/CreateSprintDialog";
 import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
 import { EditSprintDialog } from "@/components/EditSprintDialog";
+import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 import { WorkItemOptionsMenu } from "@/components/WorkItemOptionsMenu";
 import { AssigneeSelect } from "@/components/AssigneeSelect";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ export default function BacklogPage() {
   const [loading, setLoading] = useState(true);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null); // New state
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -159,7 +161,7 @@ export default function BacklogPage() {
     fetchData();
   }, [spaceKey, token]);
 
- if (loading) {
+  if (loading) {
     return (
       <MainLayout spaceName={space?.name} spaceType={space?.type}>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -259,14 +261,15 @@ export default function BacklogPage() {
                     sprintItems.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 border rounded-lg hover:bg-muted/50"
+                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" // Added cursor-pointer
+                        onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                             <span className="text-sm">{item.summary}</span>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}> {/* Prevent opening modal when clicking actions */}
                             <Badge variant="outline">{item.priority}</Badge>
                             {item.storyPoints && (
                               <Badge variant="secondary">{item.storyPoints} SP</Badge>
@@ -315,14 +318,15 @@ export default function BacklogPage() {
                 backlogItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50"
+                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" // Added cursor-pointer
+                    onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                         <span className="text-sm">{item.summary}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}> {/* Prevent opening modal when clicking actions */}
                         <Badge variant="outline">{item.priority}</Badge>
                         {item.storyPoints && (
                           <Badge variant="secondary">{item.storyPoints} SP</Badge>
@@ -374,6 +378,13 @@ export default function BacklogPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditWorkItemDialog
+        workItemId={selectedWorkItemId}
+        open={!!selectedWorkItemId}
+        onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
+        onSuccess={fetchData}
+      />
     </MainLayout>
   );
 }

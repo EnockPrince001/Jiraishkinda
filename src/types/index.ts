@@ -1,5 +1,24 @@
-export type WorkItemStatus = 'TO DO' | 'IN PROGRESS' | 'DONE';
+// --- 1. Enums (Using underscores to match Backend) ---
+export type WorkItemStatus = 'TO_DO' | 'IN_PROGRESS' | 'DONE';
 export type WorkItemPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED';
+export type SpaceType = 'KANBAN' | 'SCRUM';
+export type SpaceRole = 'ADMINISTRATOR' | 'MEMBER' | 'VIEWER';
+
+// --- 2. Helper Types ---
+export interface UserStub {
+  id: string;
+  userName: string;
+}
+
+// --- 3. Main Interfaces ---
+
+export interface Comment {
+  id: string;
+  author: UserStub;
+  content: string;
+  createdDate: string;
+}
 
 export interface WorkItem {
   id: string;
@@ -8,8 +27,8 @@ export interface WorkItem {
   description?: string;
   status: WorkItemStatus;
   priority: WorkItemPriority;
-  assignee?: string;
-  reporter: string;
+  assignee?: UserStub;
+  reporter: UserStub;
   storyPoints?: number;
   sprintId?: string;
   dueDate?: string;
@@ -20,13 +39,6 @@ export interface WorkItem {
   flagged: boolean;
 }
 
-export interface Comment {
-  id: string;
-  author: string;
-  content: string;
-  createdDate: string;
-}
-
 export interface Sprint {
   id: string;
   name: string;
@@ -34,20 +46,21 @@ export interface Sprint {
   startDate?: string;
   endDate?: string;
   duration?: string;
-  status: 'PLANNED' | 'ACTIVE' | 'COMPLETED';
-  workItems: string[];
+  status: SprintStatus;
+  workItems: WorkItem[];
+}
+
+export interface SpaceMember {
+  role: SpaceRole;
+  user: UserStub;
 }
 
 export interface Space {
   id: string;
   name: string;
   key: string;
-  type: 'KANBAN' | 'SCRUM';
-  owner: string;
+  type: SpaceType;
+  owner: UserStub;
   members: SpaceMember[];
-}
-
-export interface SpaceMember {
-  email: string;
-  role: 'ADMINISTRATOR' | 'MEMBER' | 'VIEWER';
+  sprints: Sprint[];
 }

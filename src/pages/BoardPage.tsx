@@ -1,19 +1,28 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 
 interface Space {
   id: string;
   name: string;
   key: string;
   type: 'SCRUM' | 'KANBAN';
+  sprints: Sprint[];
+}
+
+interface Sprint {
+  id: string;
+  name: string;
+  status: string;
 }
 
 interface WorkItem {
@@ -22,6 +31,7 @@ interface WorkItem {
   summary: string;
   status: string;
   priority: string;
+  sprintId?: string;
   assignee?: { id: string; userName: string };
 }
 
@@ -30,16 +40,17 @@ export default function BoardPage() {
   const [space, setSpace] = useState<Space | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null); // New state
   const { token } = useAuth();
   const { toast } = useToast();
 
   const fetchData = async () => {
     if (!spaceKey) return;
-    
+
     try {
       setLoading(true);
       const client = getGraphQLClient(token || undefined);
-      
+
       const [spaceData, workItemsData]: any = await Promise.all([
         client.request(GET_SPACE_DATA, { spaceKey }),
         client.request(GET_WORK_ITEMS, { spaceKey }),
@@ -82,58 +93,109 @@ export default function BoardPage() {
     );
   }
 
+  // --- 1. FIND ACTIVE SPRINT ---
+  const activeSprint = space.sprints?.find(s => s.status === 'ACTIVE');
+
+  // --- 2. FILTER ITEMS ---
+  let boardItems = workItems;
+
+  if (space.type === 'SCRUM') {
+    if (!activeSprint) {
+      boardItems = [];
+    } else {
+      // Filter: Show items belonging to this sprint (Case Insensitive Match)
+      boardItems = workItems.filter(item =>
+        item.sprintId && activeSprint.id &&
+        item.sprintId.toLowerCase() === activeSprint.id.toLowerCase()
+      );
+    }
+  }
+
+  // --- 3. DEFINE COLUMNS (FIXED: Using Underscores to match Backend) ---
   const columns = [
-    { id: 'TO DO', title: 'To Do' },
-    { id: 'IN PROGRESS', title: 'In Progress' },
+    { id: 'TO_DO', title: 'To Do' },          // <--- FIXED
+    { id: 'IN_PROGRESS', title: 'In Progress' }, // <--- FIXED
     { id: 'DONE', title: 'Done' },
   ];
 
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
-      <div className="p-6">
-        <div className="grid grid-cols-3 gap-4">
-          {columns.map((column) => (
-            <div key={column.id} className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{column.title}</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {workItems.filter((item) => item.status === column.id).length}
-                  </span>
+      <div className="p-6 h-full flex flex-col">
+        {/* Show Active Sprint Banner for Scrum */}
+        {space.type === 'SCRUM' && (
+          <div className="mb-4">
+            {activeSprint ? (
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold">{activeSprint.name}</h2>
+                <Badge>Active Sprint</Badge>
+              </div>
+            ) : (
+              <div className="p-4 border rounded-lg bg-muted/20 text-center">
+                <p className="text-muted-foreground">No active sprint. Go to Backlog to start a sprint.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-4 h-full">
+          {columns.map((column) => {
+            // Filter items for this specific column
+            const columnItems = boardItems.filter(item => item.status === column.id);
+
+            return (
+              <div key={column.id} className="flex flex-col gap-4 min-h-0">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">{column.title}</h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {columnItems.length}
+                    </Badge>
+                  </div>
                 </div>
-                <CreateWorkItemDialog 
-                  spaceId={space.id} 
-                  onSuccess={fetchData}
-                  defaultStatus={column.id}
-                  trigger={
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  }
-                />
-              </div>
-              <div className="space-y-2 min-h-[200px]">
-                {workItems
-                  .filter((item) => item.status === column.id)
-                  .map((item) => (
-                    <div
+
+                <div className="flex-1 overflow-y-auto space-y-3 min-h-[200px] bg-muted/10 rounded-lg p-2">
+                  {columnItems.map((item) => (
+                    <Card
                       key={item.id}
-                      className="p-4 bg-card border rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+                      className="cursor-pointer hover:shadow-md transition-all" // Changed cursor-grab to cursor-pointer
+                      onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
                     >
-                      <div className="font-medium text-sm mb-1">{item.key}</div>
-                      <div className="text-sm mb-2">{item.summary}</div>
-                      {item.assignee && (
-                        <div className="text-xs text-muted-foreground">
-                          {item.assignee.userName}
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-sm font-medium line-clamp-2">{item.summary}</span>
                         </div>
-                      )}
-                    </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="font-mono">{item.key}</span>
+                          <div className="flex items-center gap-2">
+                            {item.assignee && (
+                              <div className="flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded">
+                                <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                  {item.assignee.userName.charAt(0).toUpperCase()}
+                                </span>
+                                <span className="truncate max-w-[80px]">{item.assignee.userName}</span>
+                              </div>
+                            )}
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-5">
+                              {item.priority}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      <EditWorkItemDialog
+        workItemId={selectedWorkItemId}
+        open={!!selectedWorkItemId}
+        onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
+        onSuccess={fetchData}
+      />
     </MainLayout>
   );
 }

@@ -198,3 +198,91 @@ export const TOGGLE_WORK_ITEM_FLAG = gql`
     }
   }
 `;
+
+export const GET_WORK_ITEM_DETAILS = gql`
+  query GetWorkItemDetails($id: UUID!) {
+    workItem(id: $id) {
+      id
+      key
+      summary
+      description
+      status
+      priority
+      flagged
+      storyPoints
+      sprintId
+      dueDate
+      createdDate
+      updatedDate
+      assignee {
+        id
+        userName
+      }
+      reporter {
+        id
+        userName
+      }
+      comments {
+        id
+        content
+        createdDate
+        author {
+          id
+          userName
+        }
+      }
+      subtasks {
+        id
+        key
+        summary
+        status
+        priority
+      }
+    }
+  }
+`;
+
+export const ADD_COMMENT = gql`
+  mutation AddComment($workItemId: UUID!, $content: String!) {
+    addComment(workItemId: $workItemId, content: $content) {
+      id
+      content
+      createdDate
+      author {
+        id
+        userName
+      }
+    }
+  }
+`;
+
+export const CREATE_SUBTASK = gql`
+  mutation CreateSubtask($parentWorkItemId: UUID!, $input: CreateWorkItemInput!) {
+    createSubtask(parentWorkItemId: $parentWorkItemId, input: $input) {
+      id
+      key
+      summary
+      status
+      priority
+    }
+  }
+`;
+
+export const UPDATE_WORK_ITEM_DETAILS = gql`
+  mutation UpdateWorkItemDetails($itemId: UUID!, $input: UpdateWorkItemInput!) {
+    updateWorkItem(workItemId: $itemId, input: $input) {
+      id
+      summary
+      description
+      storyPoints
+      dueDate
+      priority
+      status
+      sprintId
+      assignee {
+        id
+        userName
+      }
+    }
+  }
+`;
