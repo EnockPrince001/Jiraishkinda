@@ -217,7 +217,7 @@ export default function BacklogPage() {
                           </>
                         )}
                         {sprint.goal && (
-                          <p className="text-sm text-muted-foreground mt-1">{sprint.goal}</p>
+                          <span className="text-sm text-muted-foreground mt-1 block">{sprint.goal}</span>
                         )}
                       </CardDescription>
                     </div>

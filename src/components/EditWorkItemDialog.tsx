@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +14,9 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  GET_WORK_ITEM_DETAILS, 
-  UPDATE_WORK_ITEM_DETAILS, 
+import {
+  GET_WORK_ITEM_DETAILS,
+  UPDATE_WORK_ITEM_DETAILS,
   ADD_COMMENT,
   CREATE_SUBTASK,
   UPDATE_WORK_ITEM
@@ -71,13 +71,13 @@ export function EditWorkItemDialog({
   open,
   onOpenChange,
   onSuccess,
-  boardColumns,
-  members,
+  boardColumns = [],
+  members = [],
 }: EditWorkItemDialogProps) {
   const [workItem, setWorkItem] = useState<WorkItemDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   // Editable states
   const [editingSummary, setEditingSummary] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -99,12 +99,12 @@ export function EditWorkItemDialog({
 
   const fetchWorkItemDetails = async () => {
     if (!workItemId) return;
-    
+
     try {
       setLoading(true);
       const client = getGraphQLClient(token || undefined);
       const data: any = await client.request(GET_WORK_ITEM_DETAILS, { id: workItemId });
-      
+
       setWorkItem(data.workItem);
       setSummary(data.workItem.summary);
       setDescription(data.workItem.description || "");
@@ -129,10 +129,10 @@ export function EditWorkItemDialog({
         itemId: workItemId,
         input: { [field]: value },
       });
-      
+
       await fetchWorkItemDetails();
       onSuccess();
-      
+
       toast({
         title: "Success",
         description: "Work item updated",
@@ -171,10 +171,10 @@ export function EditWorkItemDialog({
         workItemId,
         content: newComment.trim(),
       });
-      
+
       setNewComment("");
       await fetchWorkItemDetails();
-      
+
       toast({
         title: "Success",
         description: "Comment added",
@@ -201,12 +201,12 @@ export function EditWorkItemDialog({
           priority: "MEDIUM",
         },
       });
-      
+
       setNewSubtask("");
       setShowSubtaskInput(false);
       await fetchWorkItemDetails();
       onSuccess();
-      
+
       toast({
         title: "Success",
         description: "Subtask created",
@@ -224,17 +224,17 @@ export function EditWorkItemDialog({
 
   const handleStatusChange = async (newColumnId: string) => {
     if (!workItemId) return;
-    
+
     try {
       const client = getGraphQLClient(token || undefined);
       await client.request(UPDATE_WORK_ITEM, {
         itemId: workItemId,
         boardColumnId: newColumnId,
       });
-      
+
       await fetchWorkItemDetails();
       onSuccess();
-      
+
       toast({
         title: "Success",
         description: "Status updated",
@@ -253,6 +253,8 @@ export function EditWorkItemDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogTitle className="sr-only">Edit Work Item</DialogTitle>
+        <DialogDescription className="sr-only">View and edit work item details, comments, and subtasks.</DialogDescription>
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -355,7 +357,7 @@ export function EditWorkItemDialog({
                     </div>
 
                     <div className="space-y-2">
-                      {workItem.subtasks.map((subtask) => (
+                      {workItem.subtasks?.map((subtask) => (
                         <div
                           key={subtask.id}
                           className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50 transition-colors"
@@ -419,7 +421,7 @@ export function EditWorkItemDialog({
                       <TabsContent value="comments" className="space-y-4 mt-4">
                         {/* Existing Comments */}
                         <div className="space-y-4">
-                          {workItem.comments.map((comment) => (
+                          {workItem.comments?.map((comment) => (
                             <div key={comment.id} className="flex gap-3">
                               <Avatar className="h-8 w-8 shrink-0">
                                 <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -462,8 +464,8 @@ export function EditWorkItemDialog({
 
                       <TabsContent value="history" className="mt-4">
                         <div className="text-sm text-muted-foreground p-4 text-center border rounded bg-muted/20 space-y-1">
-                          <p><strong>Created:</strong> {format(new Date(workItem.createdDate), "MMM d, yyyy 'at' h:mm a")}</p>
-                          <p><strong>Updated:</strong> {format(new Date(workItem.updatedDate), "MMM d, yyyy 'at' h:mm a")}</p>
+                          <p><strong>Created:</strong> {workItem.createdDate ? format(new Date(workItem.createdDate), "MMM d, yyyy 'at' h:mm a") : 'N/A'}</p>
+                          <p><strong>Updated:</strong> {workItem.updatedDate ? format(new Date(workItem.updatedDate), "MMM d, yyyy 'at' h:mm a") : 'N/A'}</p>
                         </div>
                       </TabsContent>
                     </Tabs>
