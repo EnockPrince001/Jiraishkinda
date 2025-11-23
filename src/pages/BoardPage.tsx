@@ -215,6 +215,7 @@ export default function BoardPage() {
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
         boardColumns={space.boardColumns || []}
+        members={space.members || []}
       />
     </MainLayout>
   );

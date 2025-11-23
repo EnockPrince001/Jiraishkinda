@@ -17,15 +17,20 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
-    LayoutList,
+    Calendar as CalendarIcon,
+    CheckSquare,
+    User,
+    Plus,
+    X,
     Share2,
     MoreHorizontal,
-    X,
+    LayoutList,
+    Clock,
     Paperclip,
-    Plus,
     Link as LinkIcon,
-    CheckSquare
+    History
 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
@@ -44,7 +49,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { WorkItem, BoardColumn } from "@/types";
+import { WorkItem, BoardColumn, SpaceMember } from "@/types";
 
 interface EditWorkItemDialogProps {
     workItemId: string | null;
@@ -52,6 +57,7 @@ interface EditWorkItemDialogProps {
     onOpenChange: (open: boolean) => void;
     onSuccess?: () => void;
     boardColumns: BoardColumn[];
+    members: SpaceMember[]; // <--- ADDED: Needed for Assignee dropdown
 }
 
 export function EditWorkItemDialog({
@@ -60,6 +66,7 @@ export function EditWorkItemDialog({
     onOpenChange,
     onSuccess,
     boardColumns,
+    members = [], // Default to empty array to prevent crashes
 }: EditWorkItemDialogProps) {
     const [item, setItem] = useState<WorkItem | null>(null);
     const [loading, setLoading] = useState(false);
@@ -76,6 +83,8 @@ export function EditWorkItemDialog({
 
     const [storyPoints, setStoryPoints] = useState<number | undefined>(undefined);
     const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+    // Start Date state (Placeholder for when BE supports it)
+    const [startDate, setStartDate] = useState<Date | undefined>(undefined);
 
     const { token } = useAuth();
     const { toast } = useToast();
@@ -96,6 +105,7 @@ export function EditWorkItemDialog({
             setDescription(fetchedItem.description || "");
             setStoryPoints(fetchedItem.storyPoints);
             setDueDate(fetchedItem.dueDate ? new Date(fetchedItem.dueDate) : undefined);
+            // setStartDate(fetchedItem.startDate ? new Date(fetchedItem.startDate) : undefined); // Enable when BE supports it
         } catch (error: any) {
             toast({
                 title: "Error",
@@ -136,8 +146,15 @@ export function EditWorkItemDialog({
                 input: { [field]: value },
             });
 
+            // Optimistic update
             if (item) {
-                setItem({ ...item, [field]: value });
+                if (field === 'assigneeId') {
+                    // Find the user object for optimistic update
+                    const newAssignee = members.find(m => m.user.id === value)?.user;
+                    setItem({ ...item, assignee: newAssignee });
+                } else {
+                    setItem({ ...item, [field]: value });
+                }
             }
             onSuccess?.();
 
@@ -204,8 +221,10 @@ export function EditWorkItemDialog({
                 input: {
                     summary: subtaskSummary,
                     priority: "MEDIUM",
+                    // Default to first column if specific one not found
                     boardColumnId: boardColumns.find(c => c.isSystem && c.name === "TO DO")?.id || boardColumns[0]?.id,
-                    spaceId: "00000000-0000-0000-0000-000000000000" // Dummy GUID
+                    spaceId: "00000000-0000-0000-0000-000000000000", // Dummy, handled by BE
+                    key: "TEMP",
                 },
             });
 
@@ -229,6 +248,14 @@ export function EditWorkItemDialog({
     // Helper to find current status name
     const currentStatusName = boardColumns.find(c => c.id === item?.boardColumnId)?.name || "Unknown";
 
+    // Helper for status colors
+    const getStatusColor = (statusName: string) => {
+        const name = statusName.toUpperCase();
+        if (name.includes('DONE') || name.includes('COMPLETE')) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+        if (name.includes('PROGRESS')) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
+    };
+
     if (!item && loading) {
         return (
             <Dialog open={open} onOpenChange={onOpenChange}>
@@ -245,7 +272,7 @@ export function EditWorkItemDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background shadow-2xl border-none sm:rounded-xl">
 
-                {/* Header - Minimal Jira style */}
+                {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b bg-background/95 backdrop-blur z-10">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <LayoutList className="h-4 w-4 text-primary" />
@@ -255,6 +282,12 @@ export function EditWorkItemDialog({
                     </div>
 
                     <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                            <Share2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground ml-1" onClick={() => onOpenChange(false)}>
                             <X className="h-5 w-5" />
                         </Button>
@@ -262,11 +295,11 @@ export function EditWorkItemDialog({
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    {/* Main Content Column (Left) */}
+                    {/* LEFT COLUMN: Main Content */}
                     <ScrollArea className="flex-1">
                         <div className="p-8 max-w-4xl space-y-8">
 
-                            {/* Title Section */}
+                            {/* Title */}
                             <div className="space-y-4">
                                 <div className="group">
                                     {isEditingSummary ? (
@@ -304,7 +337,7 @@ export function EditWorkItemDialog({
                                 </div>
                             </div>
 
-                            {/* Description Section */}
+                            {/* Description */}
                             <div className="space-y-3">
                                 <Label className="text-sm font-semibold text-foreground">Description</Label>
                                 {isEditingDescription ? (
@@ -337,7 +370,7 @@ export function EditWorkItemDialog({
                                 )}
                             </div>
 
-                            {/* Subtasks Section */}
+                            {/* Subtasks */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm font-semibold text-foreground">Subtasks</Label>
@@ -385,9 +418,17 @@ export function EditWorkItemDialog({
                                 )}
                             </div>
 
-                            {/* Activity Section */}
+                            {/* Activity */}
                             <div className="space-y-6 pt-6 border-t">
-                                <Label className="text-sm font-semibold text-foreground">Activity</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-semibold text-foreground">Activity</Label>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs font-medium">Show: All</Button>
+                                        <Button variant="secondary" size="sm" className="h-7 text-xs font-medium">Comments</Button>
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs font-medium">History</Button>
+                                    </div>
+                                </div>
+
                                 <div className="flex gap-4">
                                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0 mt-1 shadow-sm">
                                         ME
@@ -414,7 +455,6 @@ export function EditWorkItemDialog({
                                     {item.comments?.map((comment) => (
                                         <div key={comment.id} className="relative group">
                                             <div className="absolute -left-12 top-1 w-2 h-2 rounded-full bg-muted-foreground/30 ring-4 ring-background group-hover:bg-primary/50 transition-colors" />
-
                                             <div className="space-y-1.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-sm text-foreground">{comment.author?.userName || 'Unknown'}</span>
@@ -433,17 +473,17 @@ export function EditWorkItemDialog({
                         </div>
                     </ScrollArea>
 
-                    {/* Right Column (Sidebar) */}
+                    {/* RIGHT COLUMN: Sidebar / Meta Info */}
                     <div className="w-[400px] border-l bg-muted/5 p-6 space-y-8 overflow-y-auto shrink-0 custom-scrollbar">
 
-                        {/* Status Dropdown (UPDATED FOR DYNAMIC COLUMNS) */}
+                        {/* Status */}
                         <div className="space-y-1.5">
                             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</Label>
                             <Select
-                                value={item.boardColumnId} // Bind to ID
-                                onValueChange={(val) => handleUpdate('boardColumnId', val)} // Update ID
+                                value={item.boardColumnId}
+                                onValueChange={(val) => handleUpdate('boardColumnId', val)}
                             >
-                                <SelectTrigger className="w-full font-semibold border-transparent shadow-sm transition-colors bg-muted/20 hover:bg-muted/40">
+                                <SelectTrigger className={cn("w-full font-semibold border-transparent shadow-sm transition-colors h-10", getStatusColor(currentStatusName))}>
                                     <SelectValue placeholder={currentStatusName} />
                                 </SelectTrigger>
                                 <SelectContent align="end">
@@ -460,18 +500,38 @@ export function EditWorkItemDialog({
                         <div className="space-y-4 border rounded-lg p-4 bg-background shadow-sm">
                             <h3 className="font-semibold text-sm text-foreground border-b pb-2 mb-3">Details</h3>
 
-                            {/* Assignee */}
+                            {/* Assignee - NOW EDITABLE */}
                             <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
                                 <span className="text-sm text-muted-foreground">Assignee</span>
-                                <div className="flex items-center gap-2 hover:bg-muted p-1.5 -ml-1.5 rounded cursor-pointer transition-colors group">
-                                    <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
-                                        {item.assignee?.userName?.charAt(0).toUpperCase() || "?"}
-                                    </div>
-                                    <span className="text-sm text-foreground group-hover:text-primary transition-colors">{item.assignee?.userName || "Unassigned"}</span>
-                                </div>
+                                <Select
+                                    value={item.assignee?.id || "unassigned"}
+                                    onValueChange={(val) => handleUpdate('assigneeId', val === "unassigned" ? null : val)}
+                                >
+                                    <SelectTrigger className="h-8 border-transparent hover:bg-muted px-2 -ml-2 w-fit min-w-[140px] focus:ring-0 p-0">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
+                                                {item.assignee?.userName?.charAt(0).toUpperCase() || "?"}
+                                            </div>
+                                            <span className="text-sm text-foreground">{item.assignee?.userName || "Unassigned"}</span>
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        {members.map((member) => (
+                                            <SelectItem key={member.user.id} value={member.user.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-bold">
+                                                        {member.user.userName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span>{member.user.userName}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
-                            {/* Reporter */}
+                            {/* Reporter (Read Only) */}
                             <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
                                 <span className="text-sm text-muted-foreground">Reporter</span>
                                 <div className="flex items-center gap-2 p-1.5 -ml-1.5">
@@ -490,7 +550,7 @@ export function EditWorkItemDialog({
                                     onValueChange={(val) => handleUpdate('priority', val)}
                                 >
                                     <SelectTrigger className="h-8 border-transparent hover:bg-muted px-2 -ml-2 w-fit min-w-[100px] focus:ring-0">
-                                        <SelectValue placeholder="Select priority" />
+                                        <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="LOW">Low</SelectItem>
@@ -520,13 +580,13 @@ export function EditWorkItemDialog({
                             <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dates</Label>
                             <div className="text-sm text-muted-foreground space-y-3 pt-2">
                                 <div className="flex justify-between items-center">
-                                    <span>Created</span>
-                                    <span className="text-foreground">{item.createdDate ? new Date(item.createdDate).toLocaleDateString() : 'N/A'}</span>
+                                    {/* Start Date (Placeholder) */}
+                                    <span className="flex items-center gap-1.5">Start Date</span>
+                                    <Button variant="ghost" size="sm" className="h-auto p-0 font-normal text-muted-foreground hover:text-primary" disabled>
+                                        Not Set
+                                    </Button>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <span>Updated</span>
-                                    <span className="text-foreground">{item.updatedDate ? new Date(item.updatedDate).toLocaleDateString() : 'N/A'}</span>
-                                </div>
+
                                 <div className="flex justify-between items-center pt-1">
                                     <span className="flex items-center gap-1.5">
                                         Due Date
@@ -559,6 +619,7 @@ export function EditWorkItemDialog({
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </DialogContent>

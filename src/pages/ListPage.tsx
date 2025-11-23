@@ -208,6 +208,7 @@ export default function ListPage() {
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
         boardColumns={space.boardColumns || []}
+        members={space.members || []} // <--- ADD THIS LINE
       />
     </MainLayout>
   );
