@@ -47,6 +47,7 @@ interface Sprint {
 }
 
 interface Member {
+  role: 'ADMINISTRATOR' | 'MEMBER' | 'VIEWER';
   user: {
     id: string;
     userName: string;
@@ -385,8 +386,8 @@ export default function BacklogPage() {
         open={!!selectedWorkItemId}
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
-        // FIX: Pass the columns here
         boardColumns={space.boardColumns || []}
+        members={space.members || []}
       />
     </MainLayout>
   );
