@@ -1,4 +1,3 @@
-// src/pages/BacklogPage.tsx
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
@@ -26,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { BoardColumn } from "@/types"; // Import BoardColumn type
 
 interface Space {
   id: string;
@@ -34,6 +34,7 @@ interface Space {
   type: 'SCRUM' | 'KANBAN';
   sprints: Sprint[];
   members: Member[];
+  boardColumns: BoardColumn[]; // <-- ADDED THIS
 }
 
 interface Sprint {
@@ -62,6 +63,7 @@ interface WorkItem {
   sprintId?: string;
   assignee?: { id: string; userName: string };
   flagged: boolean;
+  boardColumnId: string; // Added to match new model
 }
 
 export default function BacklogPage() {
@@ -71,7 +73,7 @@ export default function BacklogPage() {
   const [loading, setLoading] = useState(true);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
-  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null); // New state
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -87,8 +89,7 @@ export default function BacklogPage() {
         client.request(GET_WORK_ITEMS, { spaceKey }),
       ]);
 
-      // CORRECTED: Handle backend returning an array for space
-      setSpace(spaceData.space?.[0] || null); // Get the first (and likely only) space object from the array
+      setSpace(spaceData.space?.[0] || null);
       setWorkItems(workItemsData.workItemsForSpace || []);
     } catch (error: any) {
       toast({
@@ -261,15 +262,15 @@ export default function BacklogPage() {
                     sprintItems.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" // Added cursor-pointer
-                        onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
+                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                        onClick={() => setSelectedWorkItemId(item.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                             <span className="text-sm">{item.summary}</span>
                           </div>
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}> {/* Prevent opening modal when clicking actions */}
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Badge variant="outline">{item.priority}</Badge>
                             {item.storyPoints && (
                               <Badge variant="secondary">{item.storyPoints} SP</Badge>
@@ -297,7 +298,7 @@ export default function BacklogPage() {
           );
         })}
 
-        {/* Backlog Section (Items not in any sprint) */}
+        {/* Backlog Section */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -318,15 +319,15 @@ export default function BacklogPage() {
                 backlogItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" // Added cursor-pointer
-                    onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
+                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                    onClick={() => setSelectedWorkItemId(item.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                         <span className="text-sm">{item.summary}</span>
                       </div>
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}> {/* Prevent opening modal when clicking actions */}
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <Badge variant="outline">{item.priority}</Badge>
                         {item.storyPoints && (
                           <Badge variant="secondary">{item.storyPoints} SP</Badge>
@@ -384,6 +385,8 @@ export default function BacklogPage() {
         open={!!selectedWorkItemId}
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
+        // FIX: Pass the columns here
+        boardColumns={space.boardColumns || []}
       />
     </MainLayout>
   );

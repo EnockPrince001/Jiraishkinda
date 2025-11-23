@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +17,15 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
-    Calendar as CalendarIcon,
-    CheckSquare,
-    User,
-    Plus
+    LayoutList,
+    Share2,
+    MoreHorizontal,
+    X,
+    Paperclip,
+    Plus,
+    Link as LinkIcon,
+    CheckSquare
 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
@@ -65,12 +69,18 @@ export function EditWorkItemDialog({
 
     // Edit states
     const [summary, setSummary] = useState("");
+    const [isEditingSummary, setIsEditingSummary] = useState(false);
+
     const [description, setDescription] = useState("");
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
+
     const [storyPoints, setStoryPoints] = useState<number | undefined>(undefined);
     const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 
     const { token } = useAuth();
     const { toast } = useToast();
+    const summaryInputRef = useRef<HTMLInputElement>(null);
+    const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
     const fetchDetails = async () => {
         if (!workItemId || !open) return;
@@ -104,24 +114,31 @@ export function EditWorkItemDialog({
         }
     }, [open, workItemId]);
 
+    useEffect(() => {
+        if (isEditingSummary && summaryInputRef.current) {
+            summaryInputRef.current.focus();
+        }
+    }, [isEditingSummary]);
+
+    useEffect(() => {
+        if (isEditingDescription && descriptionInputRef.current) {
+            descriptionInputRef.current.focus();
+        }
+    }, [isEditingDescription]);
+
     const handleUpdate = async (field: string, value: any) => {
         if (!workItemId) return;
 
         try {
             const client = getGraphQLClient(token || undefined);
-
             await client.request(UPDATE_WORK_ITEM_DETAILS, {
                 itemId: workItemId,
                 input: { [field]: value },
             });
 
-            // Update local item state immediately for UI responsiveness
             if (item) {
-                // @ts-ignore - Dynamic field update
                 setItem({ ...item, [field]: value });
             }
-
-            // Notify parent to refresh board/list
             onSuccess?.();
 
             toast({
@@ -138,6 +155,20 @@ export function EditWorkItemDialog({
         }
     };
 
+    const handleSummarySave = () => {
+        setIsEditingSummary(false);
+        if (summary !== item?.summary) {
+            handleUpdate('summary', summary);
+        }
+    };
+
+    const handleDescriptionSave = () => {
+        setIsEditingDescription(false);
+        if (description !== item?.description) {
+            handleUpdate('description', description);
+        }
+    };
+
     const handleAddComment = async () => {
         if (!workItemId || !commentText.trim()) return;
 
@@ -149,7 +180,7 @@ export function EditWorkItemDialog({
             });
 
             setCommentText("");
-            fetchDetails(); // Refresh to show new comment
+            fetchDetails();
             toast({
                 title: "Success",
                 description: "Comment added",
@@ -174,15 +205,13 @@ export function EditWorkItemDialog({
                     summary: subtaskSummary,
                     priority: "MEDIUM",
                     boardColumnId: boardColumns.find(c => c.isSystem && c.name === "TO DO")?.id || boardColumns[0]?.id,
-                    spaceId: "00000000-0000-0000-0000-000000000000", // Dummy GUID, Backend handles logic
-                    key: "TEMP", // Backend generates this
-                    type: "SCRUM" // Enum filler
+                    spaceId: "00000000-0000-0000-0000-000000000000" // Dummy GUID
                 },
             });
 
             setSubtaskSummary("");
             setIsSubtaskInputVisible(false);
-            fetchDetails(); // Refresh to show new subtask
+            fetchDetails();
             toast({
                 title: "Success",
                 description: "Subtask created",
@@ -196,6 +225,9 @@ export function EditWorkItemDialog({
             });
         }
     };
+
+    // Helper to find current status name
+    const currentStatusName = boardColumns.find(c => c.id === item?.boardColumnId)?.name || "Unknown";
 
     if (!item && loading) {
         return (
@@ -211,125 +243,188 @@ export function EditWorkItemDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
-                {/* Header */}
-                <div className="p-4 border-b flex items-center justify-between bg-muted/10">
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline">{item.key}</Badge>
-                        <span className="text-sm text-muted-foreground">/</span>
-                        <Input
-                            value={summary}
-                            onChange={(e) => setSummary(e.target.value)}
-                            onBlur={() => summary !== item.summary && handleUpdate('summary', summary)}
-                            className="h-8 w-[400px] font-medium bg-transparent border-transparent hover:border-input focus:border-input transition-colors"
-                            maxLength={255}
-                        />
+            <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background shadow-2xl border-none sm:rounded-xl">
+
+                {/* Header - Minimal Jira style */}
+                <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b bg-background/95 backdrop-blur z-10">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <LayoutList className="h-4 w-4 text-primary" />
+                        <span className="hover:underline cursor-pointer">{item.key ? item.key.split('-')[0] : '...'}</span>
+                        <span>/</span>
+                        <span className="font-medium text-foreground hover:underline cursor-pointer">{item.key}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground ml-1" onClick={() => onOpenChange(false)}>
+                            <X className="h-5 w-5" />
+                        </Button>
                     </div>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    {/* Main Content */}
-                    <ScrollArea className="flex-1 p-6">
-                        <div className="space-y-8 pr-6">
-                            {/* Description */}
-                            <div className="space-y-2">
-                                <Label className="text-base font-semibold">Description</Label>
-                                <Textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    onBlur={() => description !== item.description && handleUpdate('description', description)}
-                                    placeholder="Add a description..."
-                                    className="min-h-[150px] resize-none"
-                                />
+                    {/* Main Content Column (Left) */}
+                    <ScrollArea className="flex-1">
+                        <div className="p-8 max-w-4xl space-y-8">
+
+                            {/* Title Section */}
+                            <div className="space-y-4">
+                                <div className="group">
+                                    {isEditingSummary ? (
+                                        <Input
+                                            ref={summaryInputRef}
+                                            value={summary}
+                                            onChange={(e) => setSummary(e.target.value)}
+                                            onBlur={handleSummarySave}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSummarySave()}
+                                            className="text-2xl font-semibold h-auto py-2 px-2 -ml-2"
+                                        />
+                                    ) : (
+                                        <h1
+                                            onClick={() => setIsEditingSummary(true)}
+                                            className="text-2xl font-semibold hover:bg-muted/50 p-2 -ml-2 rounded cursor-text transition-colors text-foreground"
+                                        >
+                                            {summary}
+                                        </h1>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" size="sm" className="h-8 gap-1.5 bg-secondary/50 hover:bg-secondary">
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                        Attach
+                                    </Button>
+                                    <Button variant="secondary" size="sm" className="h-8 gap-1.5 bg-secondary/50 hover:bg-secondary">
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add child issue
+                                    </Button>
+                                    <Button variant="secondary" size="sm" className="h-8 gap-1.5 bg-secondary/50 hover:bg-secondary">
+                                        <LinkIcon className="h-3.5 w-3.5" />
+                                        Link issue
+                                    </Button>
+                                </div>
                             </div>
 
-                            {/* Subtasks */}
+                            {/* Description Section */}
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold text-foreground">Description</Label>
+                                {isEditingDescription ? (
+                                    <div className="space-y-2">
+                                        <Textarea
+                                            ref={descriptionInputRef}
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            className="min-h-[150px] resize-none"
+                                            placeholder="Add a description..."
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={handleDescriptionSave}>Save</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => {
+                                                setDescription(item.description || "");
+                                                setIsEditingDescription(false);
+                                            }}>Cancel</Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => setIsEditingDescription(true)}
+                                        className={cn(
+                                            "min-h-[100px] p-3 rounded-md hover:bg-muted/50 cursor-text transition-colors text-sm whitespace-pre-wrap",
+                                            !description && "text-muted-foreground italic"
+                                        )}
+                                    >
+                                        {description || "Add a description..."}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Subtasks Section */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-base font-semibold">Subtasks</Label>
+                                    <Label className="text-sm font-semibold text-foreground">Subtasks</Label>
                                     <Button
                                         variant="ghost"
                                         size="sm"
+                                        className="h-8 text-muted-foreground hover:text-primary"
                                         onClick={() => setIsSubtaskInputVisible(true)}
                                     >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add subtask
+                                        <Plus className="h-4 w-4 mr-1.5" />
+                                        Create subtask
                                     </Button>
                                 </div>
 
+                                <div className="space-y-1">
+                                    {item.subtasks?.map((subtask) => (
+                                        <div key={subtask.id} className="flex items-center justify-between p-2 hover:bg-muted/40 rounded-md group transition-colors border border-transparent hover:border-border/50">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-muted p-1 rounded">
+                                                    <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                                                </div>
+                                                <span className="text-xs font-mono text-muted-foreground">{subtask.key}</span>
+                                                <span className="text-sm text-foreground">{subtask.summary}</span>
+                                            </div>
+                                            <Badge variant="outline" className="h-5 text-[10px] font-normal text-muted-foreground bg-background">
+                                                {boardColumns.find(c => c.id === subtask.boardColumnId)?.name || 'Unknown'}
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+
                                 {isSubtaskInputVisible && (
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 items-center p-2 bg-muted/30 rounded-md border border-dashed border-border">
                                         <Input
                                             value={subtaskSummary}
                                             onChange={(e) => setSubtaskSummary(e.target.value)}
                                             placeholder="What needs to be done?"
                                             onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
                                             autoFocus
+                                            className="h-8 bg-background"
                                         />
-                                        <Button size="sm" onClick={handleAddSubtask}>Add</Button>
-                                        <Button size="sm" variant="ghost" onClick={() => setIsSubtaskInputVisible(false)}>Cancel</Button>
+                                        <Button size="sm" className="h-8" onClick={handleAddSubtask}>Create</Button>
+                                        <Button size="sm" variant="ghost" className="h-8" onClick={() => setIsSubtaskInputVisible(false)}>Cancel</Button>
                                     </div>
                                 )}
-
-                                <div className="space-y-2">
-                                    {item.subtasks?.map((subtask) => (
-                                        <div key={subtask.id} className="flex items-center justify-between p-2 border rounded-md bg-card">
-                                            <div className="flex items-center gap-2">
-                                                <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                                                <span className={subtask.boardColumnId === boardColumns.find(c => c.name === 'DONE')?.id ? 'line-through text-muted-foreground' : ''}>
-                                                    {subtask.summary}
-                                                </span>
-                                            </div>
-                                            <Badge variant="outline">
-                                                {boardColumns.find(c => c.id === subtask.boardColumnId)?.name || 'Unknown'}
-                                            </Badge>
-                                        </div>
-                                    ))}
-                                    {(!item.subtasks || item.subtasks.length === 0) && !isSubtaskInputVisible && (
-                                        <p className="text-sm text-muted-foreground italic">No subtasks</p>
-                                    )}
-                                </div>
                             </div>
 
-                            {/* Activity / Comments */}
-                            <div className="space-y-4">
-                                <Label className="text-base font-semibold">Activity</Label>
-
-                                <div className="flex gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                            {/* Activity Section */}
+                            <div className="space-y-6 pt-6 border-t">
+                                <Label className="text-sm font-semibold text-foreground">Activity</Label>
+                                <div className="flex gap-4">
+                                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0 mt-1 shadow-sm">
                                         ME
                                     </div>
-                                    <div className="flex-1 gap-2">
-                                        <Textarea
-                                            value={commentText}
-                                            onChange={(e) => setCommentText(e.target.value)}
-                                            placeholder="Add a comment..."
-                                            className="min-h-[80px] mb-2"
-                                        />
-                                        <Button
-                                            size="sm"
-                                            onClick={handleAddComment}
-                                            disabled={!commentText.trim()}
-                                        >
-                                            Save
-                                        </Button>
+                                    <div className="flex-1 space-y-3">
+                                        <div className="relative">
+                                            <Textarea
+                                                value={commentText}
+                                                onChange={(e) => setCommentText(e.target.value)}
+                                                placeholder="Add a comment..."
+                                                className="min-h-[80px] resize-none pr-12 py-3"
+                                            />
+                                        </div>
+                                        {commentText.trim() && (
+                                            <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                <Button size="sm" onClick={handleAddComment}>Save</Button>
+                                                <Button size="sm" variant="ghost" onClick={() => setCommentText("")}>Cancel</Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 mt-4">
+                                <div className="space-y-6 pl-12 relative before:absolute before:left-[27px] before:top-4 before:bottom-0 before:w-px before:bg-border/50">
                                     {item.comments?.map((comment) => (
-                                        <div key={comment.id} className="flex gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
-                                                {comment.author?.userName?.charAt(0).toUpperCase() || '?'}
-                                            </div>
-                                            <div className="space-y-1">
+                                        <div key={comment.id} className="relative group">
+                                            <div className="absolute -left-12 top-1 w-2 h-2 rounded-full bg-muted-foreground/30 ring-4 ring-background group-hover:bg-primary/50 transition-colors" />
+
+                                            <div className="space-y-1.5">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-sm">{comment.author?.userName || 'Unknown'}</span>
+                                                    <span className="font-semibold text-sm text-foreground">{comment.author?.userName || 'Unknown'}</span>
                                                     <span className="text-xs text-muted-foreground">
-                                                        {new Date(comment.createdDate).toLocaleString()}
+                                                        {new Date(comment.createdDate).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-foreground/90">{comment.content}</p>
+                                                <div className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-md">
+                                                    {comment.content}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -338,36 +433,64 @@ export function EditWorkItemDialog({
                         </div>
                     </ScrollArea>
 
-                    {/* Sidebar */}
-                    <div className="w-[300px] border-l bg-muted/10 p-6 space-y-6 overflow-y-auto">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase">Status</Label>
-                                <Select
-                                    value={item.boardColumnId}
-                                    onValueChange={(val) => handleUpdate('boardColumnId', val)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {boardColumns.map((col) => (
-                                            <SelectItem key={col.id} value={col.id}>
-                                                {col.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                    {/* Right Column (Sidebar) */}
+                    <div className="w-[400px] border-l bg-muted/5 p-6 space-y-8 overflow-y-auto shrink-0 custom-scrollbar">
+
+                        {/* Status Dropdown (UPDATED FOR DYNAMIC COLUMNS) */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</Label>
+                            <Select
+                                value={item.boardColumnId} // Bind to ID
+                                onValueChange={(val) => handleUpdate('boardColumnId', val)} // Update ID
+                            >
+                                <SelectTrigger className="w-full font-semibold border-transparent shadow-sm transition-colors bg-muted/20 hover:bg-muted/40">
+                                    <SelectValue placeholder={currentStatusName} />
+                                </SelectTrigger>
+                                <SelectContent align="end">
+                                    {boardColumns.map((col) => (
+                                        <SelectItem key={col.id} value={col.id} className="font-medium">
+                                            {col.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Details Group */}
+                        <div className="space-y-4 border rounded-lg p-4 bg-background shadow-sm">
+                            <h3 className="font-semibold text-sm text-foreground border-b pb-2 mb-3">Details</h3>
+
+                            {/* Assignee */}
+                            <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
+                                <span className="text-sm text-muted-foreground">Assignee</span>
+                                <div className="flex items-center gap-2 hover:bg-muted p-1.5 -ml-1.5 rounded cursor-pointer transition-colors group">
+                                    <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
+                                        {item.assignee?.userName?.charAt(0).toUpperCase() || "?"}
+                                    </div>
+                                    <span className="text-sm text-foreground group-hover:text-primary transition-colors">{item.assignee?.userName || "Unassigned"}</span>
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase">Priority</Label>
+                            {/* Reporter */}
+                            <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
+                                <span className="text-sm text-muted-foreground">Reporter</span>
+                                <div className="flex items-center gap-2 p-1.5 -ml-1.5">
+                                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                        {item.reporter?.userName?.charAt(0).toUpperCase() || "?"}
+                                    </div>
+                                    <span className="text-sm text-foreground">{item.reporter?.userName || "Unknown"}</span>
+                                </div>
+                            </div>
+
+                            {/* Priority */}
+                            <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
+                                <span className="text-sm text-muted-foreground">Priority</span>
                                 <Select
                                     value={item.priority}
                                     onValueChange={(val) => handleUpdate('priority', val)}
                                 >
-                                    <SelectTrigger>
-                                        <SelectValue />
+                                    <SelectTrigger className="h-8 border-transparent hover:bg-muted px-2 -ml-2 w-fit min-w-[100px] focus:ring-0">
+                                        <SelectValue placeholder="Select priority" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="LOW">Low</SelectItem>
@@ -378,66 +501,61 @@ export function EditWorkItemDialog({
                                 </Select>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase">Story Points</Label>
+                            {/* Story Points */}
+                            <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
+                                <span className="text-sm text-muted-foreground">Story Points</span>
                                 <Input
                                     type="number"
                                     value={storyPoints || ''}
                                     onChange={(e) => setStoryPoints(parseInt(e.target.value) || undefined)}
                                     onBlur={() => storyPoints !== item.storyPoints && handleUpdate('storyPoints', storyPoints)}
-                                    placeholder="Estimate"
+                                    className="h-8 w-20 bg-transparent"
+                                    placeholder="-"
                                 />
                             </div>
+                        </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase">Assignee</Label>
-                                <div className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                                    <User className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm truncate">
-                                        {item.assignee?.userName || "Unassigned"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase">Due Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !dueDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={dueDate}
-                                            onSelect={(date) => {
-                                                setDueDate(date);
-                                                handleUpdate('dueDate', date?.toISOString());
-                                            }}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-
-                            <Separator />
-
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-xs text-muted-foreground">
+                        {/* Dates Group */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dates</Label>
+                            <div className="text-sm text-muted-foreground space-y-3 pt-2">
+                                <div className="flex justify-between items-center">
                                     <span>Created</span>
-                                    <span>{new Date(item.createdDate).toLocaleDateString()}</span>
+                                    <span className="text-foreground">{item.createdDate ? new Date(item.createdDate).toLocaleDateString() : 'N/A'}</span>
                                 </div>
-                                <div className="flex justify-between text-xs text-muted-foreground">
+                                <div className="flex justify-between items-center">
                                     <span>Updated</span>
-                                    <span>{new Date(item.updatedDate).toLocaleDateString()}</span>
+                                    <span className="text-foreground">{item.updatedDate ? new Date(item.updatedDate).toLocaleDateString() : 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between items-center pt-1">
+                                    <span className="flex items-center gap-1.5">
+                                        Due Date
+                                    </span>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"ghost"}
+                                                size="sm"
+                                                className={cn(
+                                                    "h-auto p-0 font-normal hover:bg-transparent hover:text-primary",
+                                                    !dueDate && "text-muted-foreground"
+                                                )}
+                                            >
+                                                {dueDate ? format(dueDate, "PPP") : <span className="text-muted-foreground hover:text-primary cursor-pointer">Set date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                mode="single"
+                                                selected={dueDate}
+                                                onSelect={(date) => {
+                                                    setDueDate(date);
+                                                    handleUpdate('dueDate', date?.toISOString());
+                                                }}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
                         </div>

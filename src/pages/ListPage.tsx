@@ -26,25 +26,7 @@ import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
-
-interface Space {
-  id: string;
-  name: string;
-  key: string;
-  type: 'SCRUM' | 'KANBAN';
-}
-
-interface WorkItem {
-  id: string;
-  key: string;
-  summary: string;
-  status: string;
-  priority: string;
-  storyPoints?: number;
-  assignee?: { id: string; userName: string };
-  reporter: { id: string; userName: string };
-  createdDate: string;
-}
+import { Space, WorkItem, BoardColumn } from "@/types"; // Import types
 
 export default function ListPage() {
   const { spaceKey } = useParams();
@@ -52,7 +34,7 @@ export default function ListPage() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [columnFilter, setColumnFilter] = useState<string>("all"); // Renamed from statusFilter
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const { token } = useAuth();
   const { toast } = useToast();
@@ -89,36 +71,26 @@ export default function ListPage() {
   const filteredWorkItems = workItems.filter((item) => {
     const matchesSearch = item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.key.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    // Filter by Board Column ID instead of Status string
+    const matchesColumn = columnFilter === "all" || item.boardColumnId === columnFilter;
+
+    return matchesSearch && matchesColumn;
   });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'URGENT':
-        return 'destructive';
-      case 'HIGH':
-        return 'default';
-      case 'MEDIUM':
-        return 'secondary';
-      case 'LOW':
-        return 'outline';
-      default:
-        return 'outline';
+      case 'URGENT': return 'destructive';
+      case 'HIGH': return 'default';
+      case 'MEDIUM': return 'secondary';
+      case 'LOW': return 'outline';
+      default: return 'outline';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DONE':
-        return 'default';
-      case 'IN PROGRESS':
-        return 'secondary';
-      case 'TO DO':
-        return 'outline';
-      default:
-        return 'outline';
-    }
+  // Helper to find column name from ID
+  const getColumnName = (columnId: string) => {
+    return space?.boardColumns?.find(c => c.id === columnId)?.name || "Unknown";
   };
 
   if (loading) {
@@ -161,17 +133,22 @@ export default function ListPage() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
+
+          {/* Dynamic Column Filter */}
+          <Select value={columnFilter} onValueChange={setColumnFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="TO DO">To Do</SelectItem>
-              <SelectItem value="IN PROGRESS">In Progress</SelectItem>
-              <SelectItem value="DONE">Done</SelectItem>
+              {space.boardColumns?.sort((a, b) => a.order - b.order).map(col => (
+                <SelectItem key={col.id} value={col.id}>
+                  {col.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
           <Button variant="outline" size="icon">
             <Filter className="h-4 w-4" />
           </Button>
@@ -208,7 +185,7 @@ export default function ListPage() {
                     <TableCell className="font-medium">{item.key}</TableCell>
                     <TableCell>{item.summary}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusColor(item.status)}>{item.status}</Badge>
+                      <Badge variant="outline">{getColumnName(item.boardColumnId)}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getPriorityColor(item.priority)}>{item.priority}</Badge>
@@ -224,11 +201,13 @@ export default function ListPage() {
         </div>
       </div>
 
+      {/* Pass boardColumns to the dialog */}
       <EditWorkItemDialog
         workItemId={selectedWorkItemId}
         open={!!selectedWorkItemId}
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
+        boardColumns={space.boardColumns || []}
       />
     </MainLayout>
   );

@@ -22,6 +22,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 
+
 export default function BoardPage() {
   const { spaceKey } = useParams();
   const [space, setSpace] = useState<Space | null>(null);
