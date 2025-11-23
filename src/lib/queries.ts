@@ -42,6 +42,12 @@ export const GET_SPACE_DATA = gql`
         endDate
         goal
       }
+      boardColumns {
+        id
+        name
+        order
+        isSystem
+      }
     }
   }
 `;
@@ -52,7 +58,7 @@ export const GET_WORK_ITEMS = gql`
       id
       key
       summary
-      status
+      boardColumnId
       priority
       flagged
       storyPoints
@@ -72,10 +78,10 @@ export const GET_WORK_ITEMS = gql`
 `;
 
 export const UPDATE_WORK_ITEM = gql`
-  mutation UpdateTaskStatus($itemId: UUID!, $newStatus: WorkItemStatus!) {
-    updateWorkItem(workItemId: $itemId, input: { status: $newStatus }) {
+  mutation UpdateTaskStatus($itemId: UUID!, $boardColumnId: UUID!) {
+    updateWorkItem(workItemId: $itemId, input: { boardColumnId: $boardColumnId }) {
       id
-      status
+      boardColumnId
     }
   }
 `;
@@ -107,7 +113,7 @@ export const CREATE_WORK_ITEM = gql`
       id
       key
       summary
-      status
+      boardColumnId
     }
   }
 `;
@@ -207,7 +213,7 @@ export const GET_WORK_ITEM_DETAILS = gql`
       key
       summary
       description
-      status
+      boardColumnId
       priority
       flagged
       storyPoints
@@ -236,7 +242,7 @@ export const GET_WORK_ITEM_DETAILS = gql`
         id
         key
         summary
-        status
+        boardColumnId
         priority
       }
     }
@@ -263,7 +269,7 @@ export const CREATE_SUBTASK = gql`
       id
       key
       summary
-      status
+      boardColumnId
       priority
     }
   }
@@ -278,12 +284,23 @@ export const UPDATE_WORK_ITEM_DETAILS = gql`
       storyPoints
       dueDate
       priority
-      status
+      boardColumnId
       sprintId
       assignee {
         id
         userName
       }
+    }
+  }
+`;
+
+export const ADD_BOARD_COLUMN = gql`
+  mutation AddBoardColumn($name: String!, $spaceId: UUID!) {
+    addBoardColumn(name: $name, spaceId: $spaceId) {
+      id
+      name
+      order
+      isSystem
     }
   }
 `;

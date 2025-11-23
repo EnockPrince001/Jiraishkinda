@@ -40,13 +40,14 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { WorkItem } from "@/types";
+import { WorkItem, BoardColumn } from "@/types";
 
 interface EditWorkItemDialogProps {
     workItemId: string | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess?: () => void;
+    boardColumns: BoardColumn[];
 }
 
 export function EditWorkItemDialog({
@@ -54,6 +55,7 @@ export function EditWorkItemDialog({
     open,
     onOpenChange,
     onSuccess,
+    boardColumns,
 }: EditWorkItemDialogProps) {
     const [item, setItem] = useState<WorkItem | null>(null);
     const [loading, setLoading] = useState(false);
@@ -103,13 +105,11 @@ export function EditWorkItemDialog({
     }, [open, workItemId]);
 
     const handleUpdate = async (field: string, value: any) => {
-        // FIX: Check against workItemId prop, not just item state
         if (!workItemId) return;
 
         try {
             const client = getGraphQLClient(token || undefined);
 
-            // FIX: The variable name in queries.ts is $itemId, so we pass 'itemId' here
             await client.request(UPDATE_WORK_ITEM_DETAILS, {
                 itemId: workItemId,
                 input: { [field]: value },
@@ -117,6 +117,7 @@ export function EditWorkItemDialog({
 
             // Update local item state immediately for UI responsiveness
             if (item) {
+                // @ts-ignore - Dynamic field update
                 setItem({ ...item, [field]: value });
             }
 
@@ -143,7 +144,7 @@ export function EditWorkItemDialog({
         try {
             const client = getGraphQLClient(token || undefined);
             await client.request(ADD_COMMENT, {
-                workItemId: workItemId, // Use prop
+                workItemId: workItemId,
                 content: commentText,
             });
 
@@ -168,11 +169,11 @@ export function EditWorkItemDialog({
         try {
             const client = getGraphQLClient(token || undefined);
             await client.request(CREATE_SUBTASK, {
-                parentWorkItemId: workItemId, // Use prop
+                parentWorkItemId: workItemId,
                 input: {
                     summary: subtaskSummary,
                     priority: "MEDIUM",
-                    status: "TO_DO",
+                    boardColumnId: boardColumns.find(c => c.isSystem && c.name === "TO DO")?.id || boardColumns[0]?.id,
                     spaceId: "00000000-0000-0000-0000-000000000000", // Dummy GUID, Backend handles logic
                     key: "TEMP", // Backend generates this
                     type: "SCRUM" // Enum filler
@@ -275,11 +276,13 @@ export function EditWorkItemDialog({
                                         <div key={subtask.id} className="flex items-center justify-between p-2 border rounded-md bg-card">
                                             <div className="flex items-center gap-2">
                                                 <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                                                <span className={subtask.status === 'DONE' ? 'line-through text-muted-foreground' : ''}>
+                                                <span className={subtask.boardColumnId === boardColumns.find(c => c.name === 'DONE')?.id ? 'line-through text-muted-foreground' : ''}>
                                                     {subtask.summary}
                                                 </span>
                                             </div>
-                                            <Badge variant="outline">{subtask.status}</Badge>
+                                            <Badge variant="outline">
+                                                {boardColumns.find(c => c.id === subtask.boardColumnId)?.name || 'Unknown'}
+                                            </Badge>
                                         </div>
                                     ))}
                                     {(!item.subtasks || item.subtasks.length === 0) && !isSubtaskInputVisible && (
@@ -341,16 +344,18 @@ export function EditWorkItemDialog({
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold text-muted-foreground uppercase">Status</Label>
                                 <Select
-                                    value={item.status}
-                                    onValueChange={(val) => handleUpdate('status', val)}
+                                    value={item.boardColumnId}
+                                    onValueChange={(val) => handleUpdate('boardColumnId', val)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="TO_DO">To Do</SelectItem>
-                                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                        <SelectItem value="DONE">Done</SelectItem>
+                                        {boardColumns.map((col) => (
+                                            <SelectItem key={col.id} value={col.id}>
+                                                {col.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>

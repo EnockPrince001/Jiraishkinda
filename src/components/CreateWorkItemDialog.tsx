@@ -29,20 +29,19 @@ interface CreateWorkItemDialogProps {
   sprintId?: string;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
-  defaultStatus?: string;
 }
 
-export function CreateWorkItemDialog({ 
-  spaceId, 
-  sprintId, 
+export function CreateWorkItemDialog({
+  spaceId,
+  sprintId,
   onSuccess,
-  trigger,
-  defaultStatus
+  trigger
 }: CreateWorkItemDialogProps) {
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
-  const [status, setStatus] = useState(defaultStatus || "TO_DO");
+  // REMOVED: const [status, setStatus] = useState(...) 
+
   const [loading, setLoading] = useState(false);
   const { token } = useAuth();
   const { toast } = useToast();
@@ -58,7 +57,7 @@ export function CreateWorkItemDialog({
         input: {
           summary,
           priority,
-          status,
+          // REMOVED: status, 
           spaceId,
           ...(sprintId && { sprintId }),
         },
@@ -71,7 +70,6 @@ export function CreateWorkItemDialog({
 
       setSummary("");
       setPriority("MEDIUM");
-      setStatus(defaultStatus || "TO DO");
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
@@ -130,19 +128,7 @@ export function CreateWorkItemDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TO_DO">To Do</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="DONE">Done</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* REMOVED: Status Select Field - items auto-assign to first column */}
           </div>
 
           <DialogFooter>

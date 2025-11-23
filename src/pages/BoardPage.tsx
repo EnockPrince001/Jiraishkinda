@@ -5,42 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, COMPLETE_SPRINT } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
-
-interface Space {
-  id: string;
-  name: string;
-  key: string;
-  type: 'SCRUM' | 'KANBAN';
-  sprints: Sprint[];
-}
-
-interface Sprint {
-  id: string;
-  name: string;
-  status: string;
-}
-
-interface WorkItem {
-  id: string;
-  key: string;
-  summary: string;
-  status: string;
-  priority: string;
-  sprintId?: string;
-  assignee?: { id: string; userName: string };
-}
+import { Space, WorkItem } from "@/types";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 
 export default function BoardPage() {
   const { spaceKey } = useParams();
   const [space, setSpace] = useState<Space | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null); // New state
+  const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -111,42 +98,56 @@ export default function BoardPage() {
     }
   }
 
-  // --- 3. DEFINE COLUMNS (FIXED: Using Underscores to match Backend) ---
-  const columns = [
-    { id: 'TO_DO', title: 'To Do' },          // <--- FIXED
-    { id: 'IN_PROGRESS', title: 'In Progress' }, // <--- FIXED
-    { id: 'DONE', title: 'Done' },
-  ];
-
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 h-full flex flex-col">
         {/* Show Active Sprint Banner for Scrum */}
         {space.type === 'SCRUM' && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             {activeSprint ? (
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">{activeSprint.name}</h2>
-                <Badge>Active Sprint</Badge>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">{activeSprint.name}</h2>
+                  <Badge>Active Sprint</Badge>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to complete this sprint?")) {
+                      try {
+                        const client = getGraphQLClient(token || undefined);
+                        await client.request(COMPLETE_SPRINT, { sprintId: activeSprint.id });
+                        toast({ title: "Success", description: "Sprint completed" });
+                        fetchData();
+                      } catch (e) {
+                        toast({ title: "Error", description: "Failed to complete sprint", variant: "destructive" });
+                      }
+                    }
+                  }}
+                >
+                  Complete Sprint
+                </Button>
               </div>
             ) : (
-              <div className="p-4 border rounded-lg bg-muted/20 text-center">
+              <div className="p-4 border rounded-lg bg-muted/20 text-center w-full">
                 <p className="text-muted-foreground">No active sprint. Go to Backlog to start a sprint.</p>
               </div>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-4 h-full">
-          {columns.map((column) => {
+        <div className="flex gap-4 h-full overflow-x-auto pb-4">
+          {/* Dynamic Columns */}
+          {space.boardColumns?.sort((a, b) => a.order - b.order).map((column) => {
             // Filter items for this specific column
-            const columnItems = boardItems.filter(item => item.status === column.id);
+            const columnItems = boardItems.filter(item => item.boardColumnId === column.id);
 
             return (
-              <div key={column.id} className="flex flex-col gap-4 min-h-0">
+              <div key={column.id} className="flex flex-col gap-4 min-w-[300px] max-w-[300px] min-h-0">
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm uppercase tracking-wide">{column.title}</h3>
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">{column.name}</h3>
                     <Badge variant="secondary" className="text-xs">
                       {columnItems.length}
                     </Badge>
@@ -157,8 +158,8 @@ export default function BoardPage() {
                   {columnItems.map((item) => (
                     <Card
                       key={item.id}
-                      className="cursor-pointer hover:shadow-md transition-all" // Changed cursor-grab to cursor-pointer
-                      onClick={() => setSelectedWorkItemId(item.id)} // Added onClick
+                      className="cursor-pointer hover:shadow-md transition-all"
+                      onClick={() => setSelectedWorkItemId(item.id)}
                     >
                       <CardContent className="p-3 space-y-2">
                         <div className="flex justify-between items-start gap-2">
@@ -187,6 +188,23 @@ export default function BoardPage() {
               </div>
             );
           })}
+
+          {/* Add Column Button */}
+          <div className="min-w-[300px] max-w-[300px]">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full h-[50px] border-dashed">
+                  <Plus className="mr-2 h-4 w-4" /> Add Column
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Column</DialogTitle>
+                </DialogHeader>
+                <AddColumnForm spaceId={space.id} onSuccess={fetchData} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
@@ -195,7 +213,51 @@ export default function BoardPage() {
         open={!!selectedWorkItemId}
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
+        boardColumns={space.boardColumns || []}
       />
     </MainLayout>
+  );
+}
+
+function AddColumnForm({ spaceId, onSuccess }: { spaceId: string, onSuccess: () => void }) {
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { token } = useAuth();
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    try {
+      setLoading(true);
+      const client = getGraphQLClient(token || undefined);
+      await client.request(ADD_BOARD_COLUMN, { name, spaceId });
+      toast({ title: "Success", description: "Column added" });
+      setName("");
+      onSuccess();
+    } catch (error: any) {
+      toast({ title: "Error", description: "Failed to add column", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        placeholder="Column Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="ghost" type="button">Cancel</Button>
+        </DialogClose>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Adding..." : "Add Column"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

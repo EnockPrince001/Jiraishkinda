@@ -1,5 +1,4 @@
 // --- 1. Enums (Using underscores to match Backend) ---
-export type WorkItemStatus = 'TO_DO' | 'IN_PROGRESS' | 'DONE';
 export type WorkItemPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED';
 export type SpaceType = 'KANBAN' | 'SCRUM';
@@ -9,6 +8,13 @@ export type SpaceRole = 'ADMINISTRATOR' | 'MEMBER' | 'VIEWER';
 export interface UserStub {
   id: string;
   userName: string;
+}
+
+export interface BoardColumn {
+  id: string;
+  name: string;
+  order: number;
+  isSystem: boolean;
 }
 
 // --- 3. Main Interfaces ---
@@ -25,7 +31,7 @@ export interface WorkItem {
   key: string;
   summary: string;
   description?: string;
-  status: WorkItemStatus;
+  boardColumnId: string; // Replaces status
   priority: WorkItemPriority;
   assignee?: UserStub;
   reporter: UserStub;
@@ -63,4 +69,5 @@ export interface Space {
   owner: UserStub;
   members: SpaceMember[];
   sprints: Sprint[];
+  boardColumns: BoardColumn[];
 }
