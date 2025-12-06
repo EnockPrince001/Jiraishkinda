@@ -145,7 +145,7 @@ export default function BoardPage() {
             const columnItems = boardItems.filter(item => item.boardColumnId === column.id);
 
             return (
-              <div key={column.id} className="flex flex-col gap-4 min-w-[300px] max-w-[300px] min-h-0">
+              <div key={column.id} className="flex flex-col gap-4 w-[280px] min-w-[240px] flex-shrink-0 min-h-0">
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-sm uppercase tracking-wide">{column.name}</h3>
@@ -191,7 +191,7 @@ export default function BoardPage() {
           })}
 
           {/* Add Column Button */}
-          <div className="min-w-[300px] max-w-[300px]">
+          <div className="w-[280px] min-w-[240px] flex-shrink-0">
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full h-[50px] border-dashed">

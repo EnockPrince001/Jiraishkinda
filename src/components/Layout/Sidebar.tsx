@@ -45,7 +45,8 @@ export function AppSidebar() {
       try {
         const client = getGraphQLClient(token || undefined);
         const data: any = await client.request(GET_ME);
-setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
+        setSpaces(data.me?.[0]?.spaces || []);
+      } catch (error) {
         console.error("Failed to fetch spaces:", error);
         // Optionally, setSpaces([]) here too if the API call fails
         // setSpaces([]);
@@ -54,13 +55,13 @@ setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
 
     // Fetch spaces when the component mounts and whenever the token changes
     fetchSpaces();
-  }, [token]); 
+  }, [token]);
 
   const displayedSpaces = showAllSpaces ? spaces : spaces.slice(0, 3);
   const hasMoreSpaces = spaces.length > 3;
 
   return (
-    <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
+    <Sidebar className="w-full h-full" collapsible="none">
       <SidebarContent>
         {/* Main Navigation */}
         <SidebarGroup>
@@ -76,7 +77,7 @@ setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
                       <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -89,33 +90,30 @@ setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
         <SidebarGroup>
           <div className="flex items-center justify-between px-3 py-2">
             <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-              {open && "Spaces"}
+              Spaces
             </SidebarGroupLabel>
-            {open && (
-              // 3. ADD the onClick handler here
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={() => navigate('/create-space')}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => navigate('/create-space')}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {displayedSpaces.length > 0 && (
                 <SidebarMenuItem>
                   <SidebarGroupLabel className="text-xs font-normal text-muted-foreground px-3">
-                    {open && "Recent"}
+                    Recent
                   </SidebarGroupLabel>
                 </SidebarMenuItem>
               )}
               {displayedSpaces.map((item) => {
                 const bgColors = ['bg-blue-500', 'bg-cyan-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500'];
                 const randomColor = bgColors[Math.floor(Math.random() * bgColors.length)];
-                
+
                 return (
                   <SidebarMenuItem key={item.space.id}>
                     <SidebarMenuButton asChild>
@@ -127,7 +125,7 @@ setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
                         <div className={`h-5 w-5 rounded flex items-center justify-center ${randomColor}`}>
                           <Folder className="h-3 w-3 text-white" />
                         </div>
-                        {open && <span className="truncate">{item.space.name}</span>}
+                        <span className="truncate">{item.space.name}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -138,12 +136,12 @@ setSpaces(data.me?.[0]?.spaces || []);      } catch (error) {
         </SidebarGroup>
 
         {/* Additional Navigation */}
-        {open && hasMoreSpaces && (
+        {hasMoreSpaces && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     onClick={() => setShowAllSpaces(!showAllSpaces)}
                     className="text-muted-foreground hover:bg-sidebar-accent"
                   >
