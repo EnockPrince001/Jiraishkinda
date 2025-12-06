@@ -17,6 +17,16 @@ export interface AuthResponse {
   username: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  token: string;
+  newPassword: string;
+}
+
 export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await fetch(`${IDENTITY_API_URL}/api/auth/login`, {
@@ -49,4 +59,39 @@ export const authApi = {
       throw new Error(error.message || 'Registration failed');
     }
   },
+
+  async forgotPassword(data: ForgotPasswordRequest): Promise<{ message: string }> {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to process request' }));
+      throw new Error(error.message || 'Failed to send password reset email');
+    }
+
+    return response.json();
+  },
+
+  async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Password reset failed' }));
+      throw new Error(error.message || 'Failed to reset password');
+    }
+
+    return response.json();
+  },
 };
+
