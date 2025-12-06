@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Calendar, Target, Users } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_SPACE_DATA, GET_WORK_ITEMS } from "@/lib/queries";
@@ -14,14 +14,24 @@ interface Space {
   name: string;
   key: string;
   type: 'SCRUM' | 'KANBAN';
+  sprints: Sprint[];
+}
+
+interface Sprint {
+  id: string;
+  name: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+  goal?: string;
 }
 
 interface WorkItem {
   id: string;
   key: string;
   summary: string;
-  status: string;
   priority: string;
+  sprintId?: string;
   assignee?: { id: string; userName: string };
   updatedDate: string;
 }
@@ -37,23 +47,17 @@ export default function TimelinePage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!spaceKey) return;
-      
+
       try {
         const client = getGraphQLClient(token || undefined);
-        
+
         const [spaceData, workItemsData]: any = await Promise.all([
           client.request(GET_SPACE_DATA, { spaceKey }),
           client.request(GET_WORK_ITEMS, { spaceKey }),
         ]);
 
         setSpace(spaceData.space?.[0] || null);
-        // Filter only completed items and sort by update date
-        const completedItems = (workItemsData.workItemsForSpace || [])
-          .filter((item: WorkItem) => item.status === 'DONE')
-          .sort((a: WorkItem, b: WorkItem) => 
-            new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime()
-          );
-        setWorkItems(completedItems);
+        setWorkItems(workItemsData.workItemsForSpace || []);
       } catch (error: any) {
         toast({
           title: "Error",
@@ -88,53 +92,111 @@ export default function TimelinePage() {
     );
   }
 
+  // Get completed sprints
+  const completedSprints = space.sprints
+    ?.filter(s => s.status === 'COMPLETED')
+    .sort((a, b) => {
+      const dateA = a.endDate ? new Date(a.endDate).getTime() : 0;
+      const dateB = b.endDate ? new Date(b.endDate).getTime() : 0;
+      return dateB - dateA; // Most recent first
+    }) || [];
+
+  // Get items for each sprint
+  const getSprintItems = (sprintId: string) => {
+    return workItems.filter(item => item.sprintId === sprintId);
+  };
+
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Timeline</h1>
-          <p className="text-muted-foreground">Recently completed work items</p>
+          <p className="text-muted-foreground">Completed sprints and their work items</p>
         </div>
 
-        <div className="space-y-4">
-          {workItems.length === 0 ? (
+        <div className="space-y-6">
+          {completedSprints.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No completed items yet</p>
+                <p className="text-lg font-medium">No completed sprints yet</p>
+                <p className="text-muted-foreground">Complete a sprint to see it here</p>
               </CardContent>
             </Card>
           ) : (
-            workItems.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-1" />
+            completedSprints.map((sprint) => {
+              const sprintItems = getSprintItems(sprint.id);
+
+              return (
+                <Card key={sprint.id} className="overflow-hidden">
+                  <CardHeader className="bg-green-50 dark:bg-green-950/20 border-b">
+                    <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-muted-foreground">{item.key}</span>
-                          <Badge variant="outline">{item.priority}</Badge>
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          <CardTitle className="text-xl">{sprint.name}</CardTitle>
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                            Completed
+                          </Badge>
                         </div>
-                        <p className="font-medium">{item.summary}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>Completed {new Date(item.updatedDate).toLocaleDateString()}</span>
-                          {item.assignee && (
-                            <>
-                              <span>•</span>
-                              <span>{item.assignee.userName}</span>
-                            </>
-                          )}
+                        {sprint.goal && (
+                          <CardDescription className="flex items-center gap-1">
+                            <Target className="h-3 w-3" />
+                            {sprint.goal}
+                          </CardDescription>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground text-right">
+                        {sprint.startDate && sprint.endDate && (
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 justify-end mt-1">
+                          <Users className="h-3 w-3" />
+                          {sprintItems.length} {sprintItems.length === 1 ? 'item' : 'items'}
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    {sprintItems.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No items in this sprint</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sprintItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
+                                  <span className="text-sm">{item.summary}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">{item.priority}</Badge>
+                              {item.assignee && (
+                                <span className="text-xs text-muted-foreground">{item.assignee.userName}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
       </div>
     </MainLayout>
   );
 }
+

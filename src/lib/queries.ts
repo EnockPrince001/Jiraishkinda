@@ -177,8 +177,8 @@ export const DELETE_WORK_ITEM = gql`
 `;
 
 export const MOVE_WORK_ITEM = gql`
-  mutation MoveWorkItem($itemId: UUID!, $sprintId: UUID) {
-    updateWorkItem(workItemId: $itemId, input: { sprintId: $sprintId }) {
+  mutation MoveWorkItem($itemId: UUID!, $sprintId: UUID, $moveToBacklog: Boolean) {
+    updateWorkItem(workItemId: $itemId, input: { sprintId: $sprintId, moveToBacklog: $moveToBacklog }) {
       id
       sprintId
     }

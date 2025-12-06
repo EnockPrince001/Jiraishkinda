@@ -24,6 +24,8 @@ import { useAuth } from "@/context/AuthContext";
 import { CREATE_WORK_ITEM } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 
+const MAX_SUMMARY_LENGTH = 150;
+
 interface CreateWorkItemDialogProps {
   spaceId: string;
   sprintId?: string;
@@ -49,6 +51,14 @@ export function CreateWorkItemDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!summary.trim()) return;
+    if (summary.length > MAX_SUMMARY_LENGTH) {
+      toast({
+        title: "Validation Error",
+        description: `Summary must be ${MAX_SUMMARY_LENGTH} characters or less`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -103,14 +113,24 @@ export function CreateWorkItemDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="summary">Summary *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="summary">Summary *</Label>
+                <span className={`text-xs ${summary.length > MAX_SUMMARY_LENGTH ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                  {summary.length}/{MAX_SUMMARY_LENGTH}
+                </span>
+              </div>
               <Input
                 id="summary"
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Enter work item summary"
                 required
+                maxLength={MAX_SUMMARY_LENGTH + 10}
+                className={summary.length > MAX_SUMMARY_LENGTH ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {summary.length > MAX_SUMMARY_LENGTH && (
+                <p className="text-xs text-destructive">Summary is too long</p>
+              )}
             </div>
 
             <div className="space-y-2">

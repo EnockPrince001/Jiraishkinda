@@ -14,6 +14,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to check if JWT token is expired
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000; // Convert to milliseconds
+    return Date.now() >= exp;
+  } catch {
+    return true; // If we can't parse, assume expired
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -27,16 +38,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUsername = localStorage.getItem('auth_username');
 
     if (storedToken && storedEmail && storedUsername) {
-      setToken(storedToken);
-      setEmail(storedEmail);
-      setUsername(storedUsername);
+      // Check if token is expired
+      if (isTokenExpired(storedToken)) {
+        // Token expired, clear storage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_email');
+        localStorage.removeItem('auth_username');
+      } else {
+        setToken(storedToken);
+        setEmail(storedEmail);
+        setUsername(storedUsername);
+      }
     }
     setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
-    
+
     setToken(response.token);
     setEmail(response.email);
     setUsername(response.username);
@@ -84,3 +103,4 @@ export function useAuth() {
   }
   return context;
 }
+

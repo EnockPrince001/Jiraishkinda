@@ -1,4 +1,4 @@
-import { Search, Plus, Bell, HelpCircle, Settings, User, LogOut, Moon, Sun } from "lucide-react";
+import { Search, Plus, Bell, HelpCircle, Settings, User, LogOut, Moon, Sun, PanelLeft, PanelLeftClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,7 +15,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 
-export function TopNavBar() {
+interface TopNavBarProps {
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export function TopNavBar({ sidebarCollapsed, onToggleSidebar }: TopNavBarProps) {
   const { username, email, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -28,7 +33,15 @@ export function TopNavBar() {
     <header className="sticky top-0 z-50 w-full border-b border-nav-border bg-nav">
       <div className="flex h-14 items-center gap-4 px-4">
         {/* Sidebar Toggle */}
-        <SidebarTrigger className="text-foreground hover:bg-nav-hover" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="text-foreground hover:bg-nav-hover"
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {sidebarCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+        </Button>
 
         {/* Logo/Brand */}
         <div className="flex items-center gap-2">

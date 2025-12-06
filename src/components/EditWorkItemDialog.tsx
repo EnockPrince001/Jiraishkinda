@@ -23,8 +23,27 @@ import {
 } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { BoardColumn, SpaceMember } from "@/types";
-import { CalendarIcon, Loader2, Plus, X, CheckSquare } from "lucide-react";
-import { format } from "date-fns";
+import {
+  CalendarIcon,
+  Loader2,
+  Plus,
+  X,
+  CheckSquare,
+  Bookmark,
+  MessageSquare,
+  Clock,
+  User,
+  Flag,
+  AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Link2,
+  MoreHorizontal,
+  Share2,
+  ExternalLink
+} from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export interface EditWorkItemDialogProps {
@@ -66,6 +85,46 @@ interface WorkItemDetails {
   }>;
 }
 
+// Safe date formatting helper
+const safeFormatDate = (dateStr: string | undefined | null, formatStr: string): string => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
+    return format(date, formatStr);
+  } catch {
+    return 'N/A';
+  }
+};
+
+const safeFormatDistance = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'N/A';
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return 'N/A';
+  }
+};
+
+// Priority config with colors and icons
+const priorityConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+  CRITICAL: { label: "Critical", color: "text-red-700", bgColor: "bg-red-100 dark:bg-red-900/30", icon: <AlertCircle className="h-3.5 w-3.5" /> },
+  HIGH: { label: "High", color: "text-orange-700", bgColor: "bg-orange-100 dark:bg-orange-900/30", icon: <ArrowUp className="h-3.5 w-3.5" /> },
+  MEDIUM: { label: "Medium", color: "text-yellow-700", bgColor: "bg-yellow-100 dark:bg-yellow-900/30", icon: <Minus className="h-3.5 w-3.5" /> },
+  LOW: { label: "Low", color: "text-blue-700", bgColor: "bg-blue-100 dark:bg-blue-900/30", icon: <ArrowDown className="h-3.5 w-3.5" /> },
+};
+
+
+// Status config with colors
+const getStatusColor = (columnName: string) => {
+  const name = columnName?.toUpperCase() || "";
+  if (name.includes("DONE") || name.includes("COMPLETE")) return "bg-green-500";
+  if (name.includes("PROGRESS") || name.includes("REVIEW")) return "bg-blue-500";
+  return "bg-gray-400";
+};
+
 export function EditWorkItemDialog({
   workItemId,
   open,
@@ -78,11 +137,18 @@ export function EditWorkItemDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Editable states
-  const [editingSummary, setEditingSummary] = useState(false);
-  const [editingDescription, setEditingDescription] = useState(false);
+  // Local editable states - populated from workItem on fetch
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
+  const [boardColumnId, setBoardColumnId] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [priority, setPriority] = useState("MEDIUM");
+  const [storyPoints, setStoryPoints] = useState<number | null>(null);
+  const [dueDate, setDueDate] = useState<string | null>(null);
+
+  // UI states
+  const [editingSummary, setEditingSummary] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -91,11 +157,35 @@ export function EditWorkItemDialog({
   const { token } = useAuth();
   const { toast } = useToast();
 
+  // Check if there are unsaved changes
+  const hasChanges = workItem ? (
+    summary !== workItem.summary ||
+    description !== (workItem.description || "") ||
+    boardColumnId !== workItem.boardColumnId ||
+    assigneeId !== (workItem.assignee?.id || null) ||
+    priority !== workItem.priority ||
+    storyPoints !== (workItem.storyPoints ?? null) ||
+    dueDate !== (workItem.dueDate || null)
+  ) : false;
+
   useEffect(() => {
     if (open && workItemId) {
       fetchWorkItemDetails();
     }
   }, [open, workItemId]);
+
+  // Reset local state when modal opens with new item
+  useEffect(() => {
+    if (workItem) {
+      setSummary(workItem.summary);
+      setDescription(workItem.description || "");
+      setBoardColumnId(workItem.boardColumnId);
+      setAssigneeId(workItem.assignee?.id || null);
+      setPriority(workItem.priority);
+      setStoryPoints(workItem.storyPoints ?? null);
+      setDueDate(workItem.dueDate || null);
+    }
+  }, [workItem]);
 
   const fetchWorkItemDetails = async () => {
     if (!workItemId) return;
@@ -104,10 +194,7 @@ export function EditWorkItemDialog({
       setLoading(true);
       const client = getGraphQLClient(token || undefined);
       const data: any = await client.request(GET_WORK_ITEM_DETAILS, { id: workItemId });
-
       setWorkItem(data.workItem);
-      setSummary(data.workItem.summary);
-      setDescription(data.workItem.description || "");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -119,28 +206,40 @@ export function EditWorkItemDialog({
     }
   };
 
-  const updateField = async (field: string, value: any) => {
-    if (!workItemId) return;
+  // Save all changes at once
+  const handleSaveAll = async () => {
+    if (!workItemId || !hasChanges) return;
 
     try {
       setSaving(true);
       const client = getGraphQLClient(token || undefined);
+
+      const input: Record<string, any> = {};
+
+      if (summary !== workItem?.summary) input.summary = summary.trim();
+      if (description !== (workItem?.description || "")) input.description = description.trim() || null;
+      if (boardColumnId !== workItem?.boardColumnId) input.boardColumnId = boardColumnId;
+      if (assigneeId !== (workItem?.assignee?.id || null)) input.assigneeId = assigneeId;
+      if (priority !== workItem?.priority) input.priority = priority;
+      if (storyPoints !== (workItem?.storyPoints ?? null)) input.storyPoints = storyPoints;
+      if (dueDate !== (workItem?.dueDate || null)) input.dueDate = dueDate;
+
       await client.request(UPDATE_WORK_ITEM_DETAILS, {
         itemId: workItemId,
-        input: { [field]: value },
+        input,
       });
 
       await fetchWorkItemDetails();
       onSuccess();
 
       toast({
-        title: "Success",
-        description: "Work item updated",
+        title: "Saved",
+        description: "All changes saved successfully",
       });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update work item",
+        description: "Failed to save changes",
         variant: "destructive",
       });
     } finally {
@@ -148,18 +247,31 @@ export function EditWorkItemDialog({
     }
   };
 
-  const handleSaveSummary = () => {
-    if (summary.trim() && summary !== workItem?.summary) {
-      updateField("summary", summary.trim());
+  // Discard changes and revert to original
+  const handleDiscardChanges = () => {
+    if (workItem) {
+      setSummary(workItem.summary);
+      setDescription(workItem.description || "");
+      setBoardColumnId(workItem.boardColumnId);
+      setAssigneeId(workItem.assignee?.id || null);
+      setPriority(workItem.priority);
+      setStoryPoints(workItem.storyPoints ?? null);
+      setDueDate(workItem.dueDate || null);
     }
     setEditingSummary(false);
+    setEditingDescription(false);
   };
 
-  const handleSaveDescription = () => {
-    if (description !== workItem?.description) {
-      updateField("description", description.trim() || null);
+  // Handle close with unsaved changes warning
+  const handleClose = () => {
+    if (hasChanges) {
+      if (confirm("You have unsaved changes. Discard them?")) {
+        handleDiscardChanges();
+        onOpenChange(false);
+      }
+    } else {
+      onOpenChange(false);
     }
-    setEditingDescription(false);
   };
 
   const handleAddComment = async () => {
@@ -176,8 +288,8 @@ export function EditWorkItemDialog({
       await fetchWorkItemDetails();
 
       toast({
-        title: "Success",
-        description: "Comment added",
+        title: "Comment added",
+        description: "Your comment was posted",
       });
     } catch (error: any) {
       toast({
@@ -208,8 +320,8 @@ export function EditWorkItemDialog({
       onSuccess();
 
       toast({
-        title: "Success",
-        description: "Subtask created",
+        title: "Subtask created",
+        description: "New subtask has been added",
       });
     } catch (error: any) {
       toast({
@@ -222,100 +334,146 @@ export function EditWorkItemDialog({
     }
   };
 
-  const handleStatusChange = async (newColumnId: string) => {
-    if (!workItemId) return;
-
-    try {
-      const client = getGraphQLClient(token || undefined);
-      await client.request(UPDATE_WORK_ITEM, {
-        itemId: workItemId,
-        boardColumnId: newColumnId,
-      });
-
-      await fetchWorkItemDetails();
-      onSuccess();
-
-      toast({
-        title: "Success",
-        description: "Status updated",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to update status",
-        variant: "destructive",
-      });
-    }
-  };
+  const currentColumn = boardColumns.find(c => c.id === boardColumnId);
+  const priorityInfo = priorityConfig[priority || "MEDIUM"];
 
   if (!open) return null;
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-[1100px] w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl">
         <DialogTitle className="sr-only">Edit Work Item</DialogTitle>
         <DialogDescription className="sr-only">View and edit work item details, comments, and subtasks.</DialogDescription>
+
         {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading...</span>
+            </div>
           </div>
         ) : workItem ? (
           <>
-            {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between shrink-0 bg-background">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-mono font-semibold text-foreground">{workItem.key}</span>
+            {/* Premium Header Bar */}
+            <div className="px-5 py-3 border-b bg-gradient-to-r from-background to-muted/30 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                {/* Type Icon */}
+                <div className="h-6 w-6 rounded bg-blue-500 flex items-center justify-center">
+                  <Bookmark className="h-3.5 w-3.5 text-white" />
+                </div>
+                {/* Key as link */}
+                <span className="font-mono font-semibold text-primary hover:underline cursor-pointer">
+                  {workItem.key}
+                </span>
+                {/* Breadcrumb separator */}
+                <span className="text-muted-foreground">/</span>
+                {/* Parent project would go here */}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4" />
-              </Button>
+
+              <div className="flex items-center gap-1">
+                {hasChanges && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleDiscardChanges}
+                      className="h-8"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveAll}
+                      disabled={saving}
+                      className="h-8 gap-1.5"
+                    >
+                      {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      Save
+                    </Button>
+                    <Separator orientation="vertical" className="h-5 mx-1" />
+                  </>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+                <Separator orientation="vertical" className="h-5 mx-1" />
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleClose}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-              {/* Left Column - Main Content (65%) */}
-              <ScrollArea className="flex-1 border-r">
+              {/* Left Column - Main Content */}
+              <ScrollArea className="flex-1">
                 <div className="p-6 space-y-6">
-                  {/* Summary */}
+                  {/* Summary - Large Title */}
                   <div>
                     {editingSummary ? (
                       <Input
                         value={summary}
                         onChange={(e) => setSummary(e.target.value)}
-                        className="text-2xl font-semibold h-auto py-2 border-2 border-primary"
+                        className="text-xl font-semibold h-auto py-2 px-3 border-2 border-primary rounded-lg"
                         autoFocus
-                        onBlur={handleSaveSummary}
+                        onBlur={() => setEditingSummary(false)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveSummary();
-                          if (e.key === "Escape") {
-                            setSummary(workItem.summary);
+                          if (e.key === "Enter" || e.key === "Escape") {
                             setEditingSummary(false);
                           }
                         }}
                       />
                     ) : (
-                      <h2
-                        className="text-2xl font-semibold cursor-pointer hover:bg-muted/50 px-3 py-2 rounded -ml-3"
+                      <h1
+                        className="text-xl font-semibold cursor-pointer hover:bg-muted/50 px-3 py-2 rounded-lg -ml-3 transition-colors"
                         onClick={() => setEditingSummary(true)}
                       >
                         {workItem.summary}
-                      </h2>
+                      </h1>
                     )}
                   </div>
 
-                  {/* Description */}
+                  {/* Quick Actions Bar */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                      <Link2 className="h-3.5 w-3.5" />
+                      Attach
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      onClick={() => setShowSubtaskInput(true)}
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      Add subtask
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                      <Link2 className="h-3.5 w-3.5" />
+                      Link issue
+                    </Button>
+                  </div>
+
+                  {/* Description Section */}
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Description</Label>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Description</h3>
                     {editingDescription ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Textarea
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Add a description..."
-                          className="min-h-[150px] resize-none"
+                          placeholder="Add a detailed description..."
+                          className="min-h-[150px] resize-none border-2 focus:border-primary"
                           autoFocus
                         />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveDescription}>Save</Button>
+                          <Button size="sm" onClick={() => setEditingDescription(false)}>Done</Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -331,141 +489,213 @@ export function EditWorkItemDialog({
                     ) : (
                       <div
                         className={cn(
-                          "text-sm cursor-pointer hover:bg-muted/50 p-4 rounded border min-h-[100px] whitespace-pre-wrap",
-                          !workItem.description && "text-muted-foreground italic"
+                          "text-sm cursor-pointer hover:bg-muted/50 p-4 rounded-lg border-2 border-dashed min-h-[80px] whitespace-pre-wrap transition-colors",
+                          description
+                            ? "border-transparent bg-muted/30"
+                            : "border-muted-foreground/20 text-muted-foreground italic"
                         )}
                         onClick={() => setEditingDescription(true)}
                       >
-                        {workItem.description || "Add a description..."}
+                        {description || "Click to add a description..."}
                       </div>
                     )}
                   </div>
 
-                  {/* Subtasks */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Subtasks</Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => setShowSubtaskInput(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Create subtask
-                      </Button>
-                    </div>
+                  {/* Subtasks Section */}
+                  {(workItem.subtasks?.length > 0 || showSubtaskInput) && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                          Child Issues
+                          {workItem.subtasks?.length > 0 && (
+                            <Badge variant="secondary" className="ml-2 text-xs">{workItem.subtasks.length}</Badge>
+                          )}
+                        </h3>
+                        {!showSubtaskInput && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setShowSubtaskInput(true)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Create
+                          </Button>
+                        )}
+                      </div>
 
-                    <div className="space-y-2">
-                      {workItem.subtasks?.map((subtask) => (
-                        <div
-                          key={subtask.id}
-                          className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50 transition-colors"
-                        >
-                          <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                          <Badge variant="outline" className="text-xs font-mono">{subtask.key}</Badge>
-                          <span className="flex-1 text-sm">{subtask.summary}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {boardColumns.find(c => c.id === subtask.boardColumnId)?.name || "Unknown"}
-                          </Badge>
-                        </div>
-                      ))}
+                      <div className="border rounded-lg overflow-hidden">
+                        {workItem.subtasks?.map((subtask, index) => {
+                          const subtaskColumn = boardColumns.find(c => c.id === subtask.boardColumnId);
+                          const subtaskPriority = priorityConfig[subtask.priority];
+                          return (
+                            <div
+                              key={subtask.id}
+                              className={cn(
+                                "flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer",
+                                index !== 0 && "border-t"
+                              )}
+                            >
+                              <CheckSquare className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                              <span className="text-xs font-mono text-primary">{subtask.key}</span>
+                              <span className="flex-1 text-sm truncate">{subtask.summary}</span>
+                              <Badge
+                                variant="outline"
+                                className={cn("text-xs", subtaskPriority?.color)}
+                              >
+                                {subtaskPriority?.icon}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {subtaskColumn?.name || "Unknown"}
+                              </Badge>
+                            </div>
+                          );
+                        })}
 
-                      {showSubtaskInput && (
-                        <div className="flex gap-2 p-2 border rounded bg-muted/20">
-                          <Input
-                            placeholder="Subtask summary..."
-                            value={newSubtask}
-                            onChange={(e) => setNewSubtask(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleAddSubtask();
-                              if (e.key === "Escape") {
+                        {showSubtaskInput && (
+                          <div className={cn("flex gap-2 p-3 bg-muted/20", workItem.subtasks?.length > 0 && "border-t")}>
+                            <Input
+                              placeholder="What needs to be done?"
+                              value={newSubtask}
+                              onChange={(e) => setNewSubtask(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddSubtask();
+                                if (e.key === "Escape") {
+                                  setNewSubtask("");
+                                  setShowSubtaskInput(false);
+                                }
+                              }}
+                              className="flex-1"
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              onClick={handleAddSubtask}
+                              disabled={!newSubtask.trim() || addingSubtask}
+                            >
+                              {addingSubtask ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
                                 setNewSubtask("");
                                 setShowSubtaskInput(false);
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <Button
-                            size="sm"
-                            onClick={handleAddSubtask}
-                            disabled={!newSubtask.trim() || addingSubtask}
-                          >
-                            {addingSubtask ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setNewSubtask("");
-                              setShowSubtaskInput(false);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      )}
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <Separator />
 
-                  {/* Activity / Comments */}
+                  {/* Activity Section */}
                   <div>
                     <Tabs defaultValue="comments" className="w-full">
-                      <TabsList className="w-full justify-start">
-                        <TabsTrigger value="comments">Comments</TabsTrigger>
-                        <TabsTrigger value="history">History</TabsTrigger>
+                      <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+                        <TabsTrigger
+                          value="comments"
+                          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Comments
+                          {workItem.comments?.length > 0 && (
+                            <Badge variant="secondary" className="ml-2 text-xs">{workItem.comments.length}</Badge>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="history"
+                          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          History
+                        </TabsTrigger>
                       </TabsList>
 
                       <TabsContent value="comments" className="space-y-4 mt-4">
-                        {/* Existing Comments */}
-                        <div className="space-y-4">
-                          {workItem.comments?.map((comment) => (
-                            <div key={comment.id} className="flex gap-3">
-                              <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {comment.author.userName.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm">{comment.author.userName}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(comment.createdDate), "MMM d, yyyy 'at' h:mm a")}
-                                  </span>
-                                </div>
-                                <div className="text-sm bg-muted/50 p-3 rounded whitespace-pre-wrap">
-                                  {comment.content}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Add Comment */}
-                        <div className="flex gap-3 pt-2">
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">ME</AvatarFallback>
+                        {/* Add Comment - Top */}
+                        <div className="flex gap-3">
+                          <Avatar className="h-8 w-8 shrink-0 ring-2 ring-background">
+                            <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
+                              ME
+                            </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 space-y-2">
                             <Textarea
                               placeholder="Add a comment..."
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
-                              className="min-h-[80px] resize-none"
+                              className="min-h-[60px] resize-none"
                             />
-                            <Button size="sm" onClick={handleAddComment} disabled={!newComment.trim()}>
-                              Add Comment
-                            </Button>
+                            {newComment.trim() && (
+                              <Button size="sm" onClick={handleAddComment}>
+                                Save
+                              </Button>
+                            )}
                           </div>
+                        </div>
+
+                        {/* Existing Comments */}
+                        <div className="space-y-4">
+                          {workItem.comments?.map((comment) => (
+                            <div key={comment.id} className="flex gap-3 group">
+                              <Avatar className="h-8 w-8 shrink-0">
+                                <AvatarFallback className="text-xs bg-muted">
+                                  {comment.author.userName.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-sm">{comment.author.userName}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {safeFormatDistance(comment.createdDate)}
+                                  </span>
+                                </div>
+                                <div className="text-sm bg-muted/40 p-3 rounded-lg whitespace-pre-wrap">
+                                  {comment.content}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </TabsContent>
 
                       <TabsContent value="history" className="mt-4">
-                        <div className="text-sm text-muted-foreground p-4 text-center border rounded bg-muted/20 space-y-1">
-                          <p><strong>Created:</strong> {workItem.createdDate ? format(new Date(workItem.createdDate), "MMM d, yyyy 'at' h:mm a") : 'N/A'}</p>
-                          <p><strong>Updated:</strong> {workItem.updatedDate ? format(new Date(workItem.updatedDate), "MMM d, yyyy 'at' h:mm a") : 'N/A'}</p>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                            <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                              <Plus className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-medium">{workItem.reporter?.userName}</span>
+                                <span className="text-muted-foreground"> created this issue</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {safeFormatDate(workItem.createdDate, "MMM d, yyyy 'at' h:mm a")}
+                              </p>
+                            </div>
+                          </div>
+                          {workItem.updatedDate !== workItem.createdDate && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                              <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                <Clock className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm text-muted-foreground">Last updated</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {safeFormatDate(workItem.updatedDate, "MMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </TabsContent>
                     </Tabs>
@@ -473,59 +703,73 @@ export function EditWorkItemDialog({
                 </div>
               </ScrollArea>
 
-              {/* Right Column - Metadata Sidebar (35%) */}
-              <div className="w-80 shrink-0 bg-muted/20">
+              {/* Right Column - Details Sidebar */}
+              <div className="w-[320px] shrink-0 border-l bg-muted/10">
                 <ScrollArea className="h-full">
-                  <div className="p-6 space-y-5">
-                    <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Details</h3>
-
-                    {/* Status */}
+                  <div className="p-5 space-y-5">
+                    {/* Status - Prominent */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Status</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</Label>
                       <Select
-                        value={workItem.boardColumnId}
-                        onValueChange={handleStatusChange}
+                        value={boardColumnId}
+                        onValueChange={setBoardColumnId}
                       >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
+                        <SelectTrigger className="w-full h-10 font-medium">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("h-2 w-2 rounded-full", getStatusColor(currentColumn?.name || ""))} />
+                            <SelectValue />
+                          </div>
                         </SelectTrigger>
                         <SelectContent>
                           {boardColumns.map((column) => (
                             <SelectItem key={column.id} value={column.id}>
-                              {column.name}
+                              <div className="flex items-center gap-2">
+                                <div className={cn("h-2 w-2 rounded-full", getStatusColor(column.name))} />
+                                {column.name}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
+                    <Separator />
+
                     {/* Assignee */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Assignee</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assignee</Label>
                       <Select
-                        value={workItem.assignee?.id || "unassigned"}
-                        onValueChange={(value) =>
-                          updateField("assigneeId", value === "unassigned" ? null : value)
-                        }
+                        value={assigneeId || "unassigned"}
+                        onValueChange={(value) => setAssigneeId(value === "unassigned" ? null : value)}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-10">
                           <SelectValue>
-                            {workItem.assignee ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-5 w-5">
-                                  <AvatarFallback className="text-[10px]">
-                                    {workItem.assignee.userName.charAt(0).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span>{workItem.assignee.userName}</span>
-                              </div>
-                            ) : (
-                              "Unassigned"
-                            )}
+                            <div className="flex items-center gap-2">
+                              {assigneeId ? (
+                                <>
+                                  <Avatar className="h-5 w-5">
+                                    <AvatarFallback className="text-[10px] bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                                      {members.find(m => m.user.id === assigneeId)?.user.userName.charAt(0).toUpperCase() || "?"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>{members.find(m => m.user.id === assigneeId)?.user.userName || "Unknown"}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="h-5 w-5 rounded-full border-2 border-dashed border-muted-foreground/30" />
+                                  <span className="text-muted-foreground">Unassigned</span>
+                                </>
+                              )}
+                            </div>
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          <SelectItem value="unassigned">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>Unassigned</span>
+                            </div>
+                          </SelectItem>
                           {members.map((member) => (
                             <SelectItem key={member.user.id} value={member.user.id}>
                               <div className="flex items-center gap-2">
@@ -542,12 +786,12 @@ export function EditWorkItemDialog({
                       </Select>
                     </div>
 
-                    {/* Reporter */}
+                    {/* Reporter - Read Only */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Reporter</Label>
-                      <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reporter</Label>
+                      <div className="flex items-center gap-2 h-10 px-3 bg-muted/50 rounded-md">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-gradient-to-br from-green-500 to-emerald-500 text-white">
                             {workItem.reporter?.userName.charAt(0).toUpperCase() || "?"}
                           </AvatarFallback>
                         </Avatar>
@@ -559,78 +803,105 @@ export function EditWorkItemDialog({
 
                     {/* Priority */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Priority</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</Label>
                       <Select
-                        value={workItem.priority}
-                        onValueChange={(value) => updateField("priority", value)}
+                        value={priority}
+                        onValueChange={setPriority}
                       >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
+                        <SelectTrigger className="w-full h-10">
+                          <SelectValue>
+                            <div className="flex items-center gap-2">
+                              <span className={priorityInfo?.color}>{priorityInfo?.icon}</span>
+                              <span>{priorityInfo?.label}</span>
+                            </div>
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="LOW">Low</SelectItem>
-                          <SelectItem value="MEDIUM">Medium</SelectItem>
-                          <SelectItem value="HIGH">High</SelectItem>
-                          <SelectItem value="CRITICAL">Critical</SelectItem>
+                          {Object.entries(priorityConfig).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-2">
+                                <span className={config.color}>{config.icon}</span>
+                                <span>{config.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
 
                     {/* Story Points */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Story Points</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={workItem.storyPoints || ""}
-                        onChange={(e) => {
-                          const value = e.target.value ? parseInt(e.target.value) : null;
-                          updateField("storyPoints", value);
-                        }}
-                        placeholder="None"
-                      />
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Story Points</Label>
+                      <Select
+                        value={storyPoints?.toString() || "none"}
+                        onValueChange={(value) => setStoryPoints(value === "none" ? null : parseInt(value))}
+                      >
+                        <SelectTrigger className="w-full h-10">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {[1, 2, 3, 5, 8, 13, 21].map((points) => (
+                            <SelectItem key={points} value={points.toString()}>
+                              {points} {points === 1 ? "point" : "points"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <Separator />
 
                     {/* Due Date */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Due Date</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Due Date</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !workItem.dueDate && "text-muted-foreground"
+                              "w-full h-10 justify-start text-left font-normal",
+                              !dueDate && "text-muted-foreground"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {workItem.dueDate ? format(new Date(workItem.dueDate), "PPP") : "Set date"}
+                            {dueDate ? safeFormatDate(dueDate, "MMM d, yyyy") : "None"}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={workItem.dueDate ? new Date(workItem.dueDate) : undefined}
-                            onSelect={(date) => updateField("dueDate", date?.toISOString())}
+                            selected={dueDate ? new Date(dueDate) : undefined}
+                            onSelect={(date) => setDueDate(date?.toISOString() || null)}
                             initialFocus
                             className="pointer-events-auto"
                           />
-                          {workItem.dueDate && (
-                            <div className="p-3 border-t">
+                          {dueDate && (
+                            <div className="p-2 border-t">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="w-full"
-                                onClick={() => updateField("dueDate", null)}
+                                className="w-full text-destructive hover:text-destructive"
+                                onClick={() => setDueDate(null)}
                               >
-                                Clear Date
+                                Remove date
                               </Button>
                             </div>
                           )}
                         </PopoverContent>
                       </Popover>
+                    </div>
+
+                    {/* Timestamps */}
+                    <div className="pt-4 space-y-2 text-xs text-muted-foreground">
+                      <div className="flex justify-between">
+                        <span>Created</span>
+                        <span>{safeFormatDistance(workItem.createdDate)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Updated</span>
+                        <span>{safeFormatDistance(workItem.updatedDate)}</span>
+                      </div>
                     </div>
                   </div>
                 </ScrollArea>
@@ -638,11 +909,15 @@ export function EditWorkItemDialog({
             </div>
           </>
         ) : (
-          <div className="p-12 text-center text-muted-foreground">
-            Work item not found
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Work item not found</p>
+            </div>
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
 }
+

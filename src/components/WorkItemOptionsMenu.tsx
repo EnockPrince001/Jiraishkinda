@@ -97,6 +97,7 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
       await client.request(MOVE_WORK_ITEM, {
         itemId: item.id,
         sprintId: targetSprintId || null,
+        moveToBacklog: !targetSprintId, // true if moving to backlog
       });
       toast({
         title: "Success",
@@ -145,7 +146,7 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
   const handleMovePosition = async (direction: 'up' | 'down' | 'top' | 'bottom') => {
     const currentItems = getCurrentSprintItems();
     const currentIndex = getItemIndex();
-    
+
     // This is a simplified version - in production you'd need a proper ordering field
     toast({
       title: "Info",
@@ -212,14 +213,14 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
-          
+
           <DropdownMenuItem onClick={handleToggleFlag}>
             <Flag className="mr-2 h-4 w-4" />
             {item.flagged ? "Remove Flag" : "Add Flag"}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
-          
+
           <DropdownMenuItem
             onClick={() => setDeleteDialogOpen(true)}
             className="text-destructive focus:text-destructive"
