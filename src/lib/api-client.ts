@@ -1,4 +1,4 @@
-const IDENTITY_API_URL = 'https://localhost:7275';
+const IDENTITY_API_URL = 'https://worknestservicesidentity-ebcrbwetgfaabzdp.uaenorth-01.azurewebsites.net';
 
 export interface LoginRequest {
   email: string;
