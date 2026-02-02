@@ -13,7 +13,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+
+
 
 interface TopNavBarProps {
   sidebarCollapsed?: boolean;
@@ -24,6 +26,10 @@ export function TopNavBar({ sidebarCollapsed, onToggleSidebar }: TopNavBarProps)
   const { username, email, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isActive = (path: string) => location.pathname.startsWith(path);
+
 
   const handleLogout = () => {
     logout();
@@ -96,44 +102,80 @@ export function TopNavBar({ sidebarCollapsed, onToggleSidebar }: TopNavBarProps)
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{username}</p>
-                  <p className="text-xs text-muted-foreground">{email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Account Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={toggleTheme}>
-                {theme === 'light' ? (
-                  <>
-                    <Moon className="mr-2 h-4 w-4" />
-                    <span>Dark Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Sun className="mr-2 h-4 w-4" />
-                    <span>Light Mode</span>
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <span>Switch Account</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+           <DropdownMenuContent align="end" className="w-56">
+  <DropdownMenuLabel>
+    <div className="flex flex-col space-y-1">
+      <p className="text-sm font-medium">{username}</p>
+      <p className="text-xs text-muted-foreground">{email}</p>
+    </div>
+  </DropdownMenuLabel>
+
+  <DropdownMenuSeparator />
+
+  {/* Profile */}
+  <DropdownMenuItem asChild>
+    <Link
+      to="/settings/profile"
+      className={`flex items-center w-full ${
+        isActive("/settings/profile") ? "bg-muted font-medium" : ""
+      }`}
+    >
+      <User className="mr-2 h-4 w-4" />
+      <span>Profile</span>
+    </Link>
+  </DropdownMenuItem>
+
+  {/* Account Settings */}
+  <DropdownMenuItem asChild>
+    <Link
+      to="/settings/profile"
+      className={`flex items-center w-full ${
+        isActive("/settings") ? "bg-muted font-medium" : ""
+      }`}
+    >
+      <Settings className="mr-2 h-4 w-4" />
+      <span>Account Settings</span>
+    </Link>
+  </DropdownMenuItem>
+
+  <DropdownMenuSeparator />
+
+  {/* Theme Toggle */}
+  <DropdownMenuItem onClick={toggleTheme}>
+    {theme === "light" ? (
+      <>
+        <Moon className="mr-2 h-4 w-4" />
+        <span>Dark Mode</span>
+      </>
+    ) : (
+      <>
+        <Sun className="mr-2 h-4 w-4" />
+        <span>Light Mode</span>
+      </>
+    )}
+  </DropdownMenuItem>
+
+  {/* Switch Account */}
+  <DropdownMenuItem asChild>
+    <Link
+      to="/settings/spaces"
+      className={`flex items-center w-full ${
+        isActive("/settings/spaces") ? "bg-muted font-medium" : ""
+      }`}
+    >
+      <span>Switch Account</span>
+    </Link>
+  </DropdownMenuItem>
+
+  <DropdownMenuSeparator />
+
+  {/* Logout */}
+  <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+    <LogOut className="mr-2 h-4 w-4" />
+    <span>Logout</span>
+  </DropdownMenuItem>
+</DropdownMenuContent>
+
           </DropdownMenu>
         </div>
       </div>

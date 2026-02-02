@@ -1,11 +1,18 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, type AuthResponse } from '@/lib/api-client';
+import { authApi } from '@/lib/api-client';
+
+// Define the User interface for the context state
+interface User {
+  name: string;
+  email: string;
+  jobTitle?: string;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
   token: string | null;
-  email: string | null;
-  username: string | null;
+  user: User | null;
+  setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -14,40 +21,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to check if JWT token is expired
 function isTokenExpired(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    const exp = payload.exp * 1000; // Convert to milliseconds
+    const exp = payload.exp * 1000;
     return Date.now() >= exp;
   } catch {
-    return true; // If we can't parse, assume expired
+    return true;
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored token on mount
     const storedToken = localStorage.getItem('auth_token');
-    const storedEmail = localStorage.getItem('auth_email');
-    const storedUsername = localStorage.getItem('auth_username');
+    const storedUser = localStorage.getItem('auth_user');
 
-    if (storedToken && storedEmail && storedUsername) {
-      // Check if token is expired
+    if (storedToken && storedUser) {
       if (isTokenExpired(storedToken)) {
-        // Token expired, clear storage
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_email');
-        localStorage.removeItem('auth_username');
+        logout();
       } else {
         setToken(storedToken);
-        setEmail(storedEmail);
-        setUsername(storedUsername);
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          logout();
+        }
       }
     }
     setIsLoading(false);
@@ -56,13 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
 
+    // Cast as 'any' temporarily to bypass the missing property error 
+    // in the response type until you update authApi/AuthResponse
+    const userData: User = {
+      name: response.username,
+      email: response.email,
+      jobTitle: (response as any).jobTitle || "" 
+    };
+
     setToken(response.token);
-    setEmail(response.email);
-    setUsername(response.username);
+    setUser(userData);
 
     localStorage.setItem('auth_token', response.token);
-    localStorage.setItem('auth_email', response.email);
-    localStorage.setItem('auth_username', response.username);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const register = async (username: string, email: string, password: string) => {
@@ -71,11 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setToken(null);
-    setEmail(null);
-    setUsername(null);
+    setUser(null);
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_email');
-    localStorage.removeItem('auth_username');
+    localStorage.removeItem('auth_user');
   };
 
   return (
@@ -83,8 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         isAuthenticated: !!token,
         token,
-        email,
-        username,
+        user,
+        setUser,
         login,
         register,
         logout,
@@ -103,4 +109,3 @@ export function useAuth() {
   }
   return context;
 }
-
