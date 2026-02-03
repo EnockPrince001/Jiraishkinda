@@ -15,26 +15,30 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 
-
-
 interface TopNavBarProps {
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
 
 export function TopNavBar({ sidebarCollapsed, onToggleSidebar }: TopNavBarProps) {
-  const { username, email, logout } = useAuth();
+  // Destructure only what exists on AuthContextType
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  // Extract display values safely from the user object
+  // This ensures that when the user object updates, displayName updates too
+  const displayName = user?.name || "User";
+  const displayEmail = user?.email || "";
 
+  const isActive = (path: string) => location.pathname.startsWith(path);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-nav-border bg-nav">
       <div className="flex h-14 items-center gap-4 px-4">
@@ -97,85 +101,84 @@ export function TopNavBar({ sidebarCollapsed, onToggleSidebar }: TopNavBarProps)
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {username?.substring(0, 2).toUpperCase() || "U"}
+                    {displayName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
            <DropdownMenuContent align="end" className="w-56">
-  <DropdownMenuLabel>
-    <div className="flex flex-col space-y-1">
-      <p className="text-sm font-medium">{username}</p>
-      <p className="text-xs text-muted-foreground">{email}</p>
-    </div>
-  </DropdownMenuLabel>
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{displayEmail}</p>
+              </div>
+            </DropdownMenuLabel>
 
-  <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
 
-  {/* Profile */}
-  <DropdownMenuItem asChild>
-    <Link
-      to="/settings/profile"
-      className={`flex items-center w-full ${
-        isActive("/settings/profile") ? "bg-muted font-medium" : ""
-      }`}
-    >
-      <User className="mr-2 h-4 w-4" />
-      <span>Profile</span>
-    </Link>
-  </DropdownMenuItem>
+            {/* Profile */}
+            <DropdownMenuItem asChild>
+              <Link
+                to="/settings/profile"
+                className={`flex items-center w-full ${
+                  isActive("/settings/profile") ? "bg-muted font-medium" : ""
+                }`}
+              >
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            </DropdownMenuItem>
 
-  {/* Account Settings */}
-  <DropdownMenuItem asChild>
-    <Link
-      to="/settings/profile"
-      className={`flex items-center w-full ${
-        isActive("/settings") ? "bg-muted font-medium" : ""
-      }`}
-    >
-      <Settings className="mr-2 h-4 w-4" />
-      <span>Account Settings</span>
-    </Link>
-  </DropdownMenuItem>
+            {/* Account Settings */}
+            <DropdownMenuItem asChild>
+              <Link
+                to="/settings/profile"
+                className={`flex items-center w-full ${
+                  isActive("/settings") ? "bg-muted font-medium" : ""
+                }`}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Account Settings</span>
+              </Link>
+            </DropdownMenuItem>
 
-  <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
 
-  {/* Theme Toggle */}
-  <DropdownMenuItem onClick={toggleTheme}>
-    {theme === "light" ? (
-      <>
-        <Moon className="mr-2 h-4 w-4" />
-        <span>Dark Mode</span>
-      </>
-    ) : (
-      <>
-        <Sun className="mr-2 h-4 w-4" />
-        <span>Light Mode</span>
-      </>
-    )}
-  </DropdownMenuItem>
+            {/* Theme Toggle */}
+            <DropdownMenuItem onClick={toggleTheme}>
+              {theme === "light" ? (
+                <>
+                  <Moon className="mr-2 h-4 w-4" />
+                  <span>Dark Mode</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="mr-2 h-4 w-4" />
+                  <span>Light Mode</span>
+                </>
+              )}
+            </DropdownMenuItem>
 
-  {/* Switch Account */}
-  <DropdownMenuItem asChild>
-    <Link
-      to="/settings/spaces"
-      className={`flex items-center w-full ${
-        isActive("/settings/spaces") ? "bg-muted font-medium" : ""
-      }`}
-    >
-      <span>Switch Account</span>
-    </Link>
-  </DropdownMenuItem>
+            {/* Switch Account */}
+            <DropdownMenuItem asChild>
+              <Link
+                to="/settings/spaces"
+                className={`flex items-center w-full ${
+                  isActive("/settings/spaces") ? "bg-muted font-medium" : ""
+                }`}
+              >
+                <span>Switch Account</span>
+              </Link>
+            </DropdownMenuItem>
 
-  <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
 
-  {/* Logout */}
-  <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
-    <LogOut className="mr-2 h-4 w-4" />
-    <span>Logout</span>
-  </DropdownMenuItem>
-</DropdownMenuContent>
-
+            {/* Logout */}
+            <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>

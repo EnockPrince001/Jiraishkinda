@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast"; // ✅ Using your hook
+import { useToast } from "@/hooks/use-toast";
 
 type User = {
   name: string;
@@ -12,8 +12,8 @@ type User = {
 };
 
 export default function ProfileSettingsPage() {
-  const { user, setUser } = useAuth(); 
-  const { toast } = useToast(); // ✅ Initialize the hook
+  const { user, setUser, token } = useAuth(); 
+  const { toast } = useToast(); 
   
   const safeUser: User = user ?? { name: "", email: "", jobTitle: "" };
 
@@ -30,31 +30,59 @@ export default function ProfileSettingsPage() {
   }, [user]);
 
   const handleSave = async () => {
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "Your session has expired. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify({ name, jobTitle }),
       });
 
-      if (!response.ok) throw new Error("Failed to update profile");
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Unauthorized: Please log in again.");
+        throw new Error("Failed to update profile");
+      }
 
-      const updatedUser = await response.json();
-      if (setUser) setUser(updatedUser);
+      const updatedData = await response.json();
+      
+      // 1. Prepare the updated user object
+      const newUserState = {
+        ...user,
+        name: updatedData.name,
+        jobTitle: updatedData.jobTitle
+      } as User;
 
-      // ✅ Correct useToast syntax
+      // 2. Update global context (for current session UI)
+      if (setUser) {
+        setUser(newUserState);
+      }
+
+      // 3. Update localStorage (to persist changes after refresh/navigation)
+      // Note: Use the same key your AuthContext uses (usually 'user' or 'auth_user')
+      localStorage.setItem("auth_user", JSON.stringify(newUserState));
+
       toast({
         title: "Success",
         description: "Your profile has been updated successfully.",
-        variant: "default", // or "success" if your theme supports it
+        variant: "default", 
       });
 
     } catch (err: any) {
-      // ✅ Correct useToast syntax for errors
       toast({
-        title: "Error",
-        description: err.message || "Something went wrong",
+        title: "Update Failed",
+        description: err.message || "Something went wrong while saving.",
         variant: "destructive",
       });
     } finally {
@@ -77,12 +105,14 @@ export default function ProfileSettingsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={loading}
+            placeholder="Enter your full name"
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" value={email} disabled className="bg-muted" />
+          <Input id="email" value={email} disabled className="bg-muted cursor-not-allowed" />
+          <p className="text-[0.8rem] text-muted-foreground">Email cannot be changed.</p>
         </div>
 
         <div className="space-y-2">
@@ -92,11 +122,12 @@ export default function ProfileSettingsPage() {
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
             disabled={loading}
+            placeholder="e.g. Software Engineer"
           />
         </div>
 
         <div className="pt-4">
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading} className="w-full md:w-auto">
             {loading ? "Saving..." : "Save changes"}
           </Button>
         </div>

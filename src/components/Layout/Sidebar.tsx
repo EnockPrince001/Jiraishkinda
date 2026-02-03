@@ -1,4 +1,4 @@
-import { Home, Layout, Folder, ChevronRight, Plus } from "lucide-react";
+import { Home, Layout, Folder, ChevronRight, Plus, User as UserIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_ME } from "@/lib/queries";
@@ -36,7 +37,8 @@ export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  // Destructure 'user' from useAuth to show live name/title updates
+  const { user, token } = useAuth(); 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [showAllSpaces, setShowAllSpaces] = useState(false);
 
@@ -48,12 +50,9 @@ export function AppSidebar() {
         setSpaces(data.me?.[0]?.spaces || []);
       } catch (error) {
         console.error("Failed to fetch spaces:", error);
-        // Optionally, setSpaces([]) here too if the API call fails
-        // setSpaces([]);
       }
     };
 
-    // Fetch spaces when the component mounts and whenever the token changes
     fetchSpaces();
   }, [token]);
 
@@ -63,6 +62,25 @@ export function AppSidebar() {
   return (
     <Sidebar className="w-full h-full" collapsible="none">
       <SidebarContent>
+        {/* --- USER PROFILE SECTION --- */}
+        <SidebarGroup className="border-b border-sidebar-border pb-4 mb-2">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <Avatar className="h-9 w-9 rounded-lg">
+              <AvatarFallback className="rounded-lg bg-primary text-primary-foreground font-bold">
+                {user?.name?.substring(0, 1).toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight overflow-hidden">
+              <span className="truncate font-semibold">
+                {user?.name || "User"}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {user?.jobTitle || "No title set"}
+              </span>
+            </div>
+          </div>
+        </SidebarGroup>
+
         {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
