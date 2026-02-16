@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN,UPDATE_WORK_ITEM,MOVE_BOARD_COLUMN_LEFT,MOVE_BOARD_COLUMN_RIGHT,DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP,COMPLETE_SPRINT,UPDATE_WORK_ITEM_DETAILS,DELETE_WORK_ITEM} from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil } from "lucide-react";
-import { useDraggable,} from "@dnd-kit/core";
+import { useDraggable, } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { StoryPoints } from "@/components/StoryPoints";
@@ -75,24 +75,24 @@ export default function BoardPage() {
   const [openColumnMenuId, setOpenColumnMenuId] = useState<string | null>(null);
   const [confirmDeleteColumnId, setConfirmDeleteColumnId] = useState<string | null>(null);
   const [creatingColumnId, setCreatingColumnId] = useState<string | null>(null);
-const [newTaskSummary, setNewTaskSummary] = useState("");
+  const [newTaskSummary, setNewTaskSummary] = useState("");
   const { token } = useAuth();
   const { toast } = useToast();
   const handleDeleteItem = async () => {
     if (!deletingItem) return;
-  
+
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(DELETE_WORK_ITEM, {
         itemId: deletingItem.id,
       });
-  
+
       toast({
         title: "Task deleted",
         description: "The task was removed successfully",
       });
-  
+
       setDeletingItem(null);
       fetchData();
     } catch (error) {
@@ -130,25 +130,25 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
       </div>
     );
   };
-  
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
-  
+
     if (!over) return;
-  
+
     const itemId = active.id;
     const newColumnId = over.id;
-  
+
     const item = workItems.find(i => i.id === itemId);
     if (!item || item.boardColumnId === newColumnId) return;
-  
+
     // Optimistic UI update
     setWorkItems(prev =>
       prev.map(i =>
         i.id === itemId ? { ...i, boardColumnId: newColumnId } : i
       )
     );
-  
+
     // Persist to backend
     try {
       const client = getGraphQLClient(token || undefined);
@@ -166,9 +166,9 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
       fetchData(); // rollback
     }
   };
-  
-  
-  
+
+
+
   const DraggableItem = ({ item, children }) => {
     const {
       attributes,
@@ -180,12 +180,12 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
     } = useSortable({
       id: item.id,
     });
-  
+
     const style = {
       transition,
       opacity: isDragging ? 0.5 : 1,
     };
-    
+
     return (
       <div
         ref={setNodeRef}
@@ -201,11 +201,11 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
   const moveColumnLeft = async (column) => {
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(MOVE_BOARD_COLUMN_LEFT, {
         columnId: column.id,
       });
-  
+
       fetchData();
     } catch (error) {
       console.error(error);
@@ -216,15 +216,15 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
       });
     }
   };
-  
+
   const moveColumnRight = async (column) => {
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(MOVE_BOARD_COLUMN_RIGHT, {
         columnId: column.id,
       });
-  
+
       fetchData();
     } catch (error) {
       console.error(error);
@@ -235,21 +235,21 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
       });
     }
   };
-  
+
   const deleteColumn = async (column, targetColumnId) => {
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(DELETE_BOARD_COLUMN, {
         columnId: column.id,
         targetColumnId,
       });
-  
+
       toast({
         title: "Column deleted",
         description: "Column removed successfully",
       });
-  
+
       fetchData();
     } catch (error) {
       console.error(error);
@@ -261,82 +261,82 @@ const [newTaskSummary, setNewTaskSummary] = useState("");
     }
   };
   // =======================
-// JIRA-LIKE MENU ACTIONS
-// =======================
+  // JIRA-LIKE MENU ACTIONS
+  // =======================
 
-const moveItemUp = async (item) => {
-  try {
-    const client = getGraphQLClient(token || undefined);
+  const moveItemUp = async (item) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
 
-    await client.request(MOVE_WORK_ITEM_UP, {
-      workItemId: item.id,
-    });
+      await client.request(MOVE_WORK_ITEM_UP, {
+        workItemId: item.id,
+      });
 
-    fetchData(); // reload ordered items
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Failed to move item up",
-      variant: "destructive",
-    });
-  }
-};
+      fetchData(); // reload ordered items
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to move item up",
+        variant: "destructive",
+      });
+    }
+  };
 
-const moveItemToTop = async (item) => {
-  try {
-    const client = getGraphQLClient(token || undefined);
+  const moveItemToTop = async (item) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
 
-    await client.request(MOVE_WORK_ITEM_TO_TOP, {
-      workItemId: item.id,
-    });
+      await client.request(MOVE_WORK_ITEM_TO_TOP, {
+        workItemId: item.id,
+      });
 
-    fetchData();
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Failed to move item to top",
-      variant: "destructive",
-    });
-  }
-};
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to move item to top",
+        variant: "destructive",
+      });
+    }
+  };
 
-const changeStatus = async (item, columnId) => {
-  try {
-    const client = getGraphQLClient(token || undefined);
+  const changeStatus = async (item, columnId) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
 
-    await client.request(UPDATE_WORK_ITEM, {
-      itemId: item.id,
-      boardColumnId: columnId,
-    });
+      await client.request(UPDATE_WORK_ITEM, {
+        itemId: item.id,
+        boardColumnId: columnId,
+      });
 
-    fetchData();
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Failed to move task",
-      variant: "destructive",
-    });
-  }
-};
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to move task",
+        variant: "destructive",
+      });
+    }
+  };
 
-const toggleFlag = async (item) => {
-  console.log("Toggle flag", item.key);
+  const toggleFlag = async (item) => {
+    console.log("Toggle flag", item.key);
 
-  // later:
-  // await client.request(TOGGLE_FLAG, {...})
-  // fetchData();
-};
+    // later:
+    // await client.request(TOGGLE_FLAG, {...})
+    // fetchData();
+  };
 
-const openLabelDialog = (item) => {
-  console.log("Open label dialog for", item.key);
+  const openLabelDialog = (item) => {
+    console.log("Open label dialog for", item.key);
 
-  // later:
-  // setSelectedItemForLabels(item)
-  // setLabelDialogOpen(true)
-};
+    // later:
+    // setSelectedItemForLabels(item)
+    // setLabelDialogOpen(true)
+  };
 
   const fetchData = async () => {
     if (!spaceKey) return;
@@ -364,20 +364,20 @@ const openLabelDialog = (item) => {
   };
   const deleteWorkItem = async () => {
     if (!deletingItem) return;
-  
+
     try {
       setIsDeleting(true);
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(DELETE_WORK_ITEM, {
         itemId: deletingItem.id,
       });
-  
+
       toast({
         title: "Task deleted",
         description: "The task was removed successfully",
       });
-  
+
       fetchData();
     } catch (error) {
       toast({
@@ -389,7 +389,7 @@ const openLabelDialog = (item) => {
       setIsDeleting(false);
       setDeletingItem(null);
     }
-  }; 
+  };
   useEffect(() => {
     fetchData();
   }, [spaceKey, token]);
@@ -398,17 +398,17 @@ const openLabelDialog = (item) => {
       setEditingItemId(null);
       return;
     }
-  
+
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(UPDATE_WORK_ITEM_DETAILS, {
         itemId: item.id,
         input: {
           summary: editingSummary.trim(),
         },
       });
-  
+
       fetchData(); // or refetchBoardData if board uses a different fetch
     } catch (error) {
       console.error("Failed to update summary", error);
@@ -420,7 +420,7 @@ const openLabelDialog = (item) => {
     } finally {
       setEditingItemId(null);
     }
-  }; 
+  };
   if (loading) {
     return (
       <MainLayout spaceName={space?.name} spaceType={space?.type}>
@@ -461,7 +461,7 @@ const openLabelDialog = (item) => {
 
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
-     <div className="p-6 h-full flex flex-col overflow-hidden">
+      <div className="p-6 h-full flex flex-col overflow-hidden">
         {/* Show Active Sprint Banner for Scrum */}
         {space.type === 'SCRUM' && (
           <div className="mb-4 flex items-center justify-between">
@@ -497,442 +497,442 @@ const openLabelDialog = (item) => {
             )}
           </div>
         )}
-{/* ================= BOARD HEADER (JIRA STYLE) ================= */}
-<div className="mb-4 flex items-center justify-between">
-  <h2 className="text-sm font-medium text-muted-foreground">
-    Board
-  </h2>
+        {/* ================= BOARD HEADER (JIRA STYLE) ================= */}
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Board
+          </h2>
 
-  <Dialog>
-    <DialogTrigger asChild>
-      <Button size="sm" variant="outline">
-        <Plus className="mr-2 h-4 w-4" />
-        Add column
-      </Button>
-    </DialogTrigger>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                Add column
+              </Button>
+            </DialogTrigger>
 
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Add New Column</DialogTitle>
-      </DialogHeader>
-      <AddColumnForm spaceId={space.id} onSuccess={fetchData} />
-    </DialogContent>
-  </Dialog>
-</div>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Column</DialogTitle>
+              </DialogHeader>
+              <AddColumnForm spaceId={space.id} onSuccess={fetchData} />
+            </DialogContent>
+          </Dialog>
+        </div>
 
-<DndContext
-  sensors={sensors}
-  collisionDetection={closestCenter}
-  onDragStart={(event) =>
-    setActiveItemId(String(event.active.id))
-  }
-  onDragEnd={(event) => {
-    handleDragEnd(event);
-    setActiveItemId(null);
-  }}
-  onDragCancel={() => setActiveItemId(null)}
->
-<div className="flex gap-4 flex-1 overflow-x-auto overflow-y-scroll pb-4 min-h-0">
-    {/* ================= DYNAMIC COLUMNS ================= */}
-    {space.boardColumns
-      ?.sort((a, b) => a.order - b.order)
-      .map((column, columnIndex) => {
-        const columnItems = boardItems.filter(
-          (item) => item.boardColumnId === column.id
-        );
-        const totalColumns = space.boardColumns?.length || 0;
-const isFirst = columnIndex === 0;
-const isLast = columnIndex === totalColumns - 1;
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={(event) =>
+            setActiveItemId(String(event.active.id))
+          }
+          onDragEnd={(event) => {
+            handleDragEnd(event);
+            setActiveItemId(null);
+          }}
+          onDragCancel={() => setActiveItemId(null)}
+        >
+          <div className="flex gap-4 flex-1 overflow-x-auto overflow-y-scroll pb-4 min-h-0">
+            {/* ================= DYNAMIC COLUMNS ================= */}
+            {space.boardColumns
+              ?.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+              .map((column, columnIndex) => {
+                const columnItems = boardItems.filter(
+                  (item) => item.boardColumnId === column.id
+                );
+                const totalColumns = space.boardColumns?.length || 0;
+                const isFirst = columnIndex === 0;
+                const isLast = columnIndex === totalColumns - 1;
 
-        return (
-<div
-  key={column.id}
-  onMouseEnter={() => setHoveredColumnId(column.id)}
-  onMouseLeave={() => setHoveredColumnId(null)}
-  id={column.id}
-  className="flex flex-col w-[280px] min-w-[240px] flex-shrink-0 h-full"
->
-      <div 
-      onMouseEnter={() => setHoveredColumnId(column.id)}
-      onMouseLeave={() => {
-        setHoveredColumnId(null);
-        setOpenColumnMenuId(null);
-      }}
-      className="
+                return (
+                  <div
+                    key={column.id}
+                    onMouseEnter={() => setHoveredColumnId(column.id)}
+                    onMouseLeave={() => setHoveredColumnId(null)}
+                    id={column.id}
+                    className="flex flex-col w-[280px] min-w-[240px] flex-shrink-0 h-full"
+                  >
+                    <div
+                      onMouseEnter={() => setHoveredColumnId(column.id)}
+                      onMouseLeave={() => {
+                        setHoveredColumnId(null);
+                        setOpenColumnMenuId(null);
+                      }}
+                      className="
           flex items-center justify-between p-3 bg-muted/50
             rounded-lg sticky top-0 z-20 backdrop-blur
                ">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm uppercase tracking-wide">
-                  {column.name}
-                </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {columnItems.length}
-                </Badge>
-              </div>
-              {/* 3 DOTS (HOVER ONLY) */}
-              {hoveredColumnId === column.id && (
-  <div className="relative">
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setOpenColumnMenuId(
-          openColumnMenuId === column.id ? null : column.id
-        );
-      }}
-      className="text-muted-foreground hover:text-foreground px-1"
-    >
-      ⋯
-    </button>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-sm uppercase tracking-wide">
+                          {column.name}
+                        </h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {columnItems.length}
+                        </Badge>
+                      </div>
+                      {/* 3 DOTS (HOVER ONLY) */}
+                      {hoveredColumnId === column.id && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenColumnMenuId(
+                                openColumnMenuId === column.id ? null : column.id
+                              );
+                            }}
+                            className="text-muted-foreground hover:text-foreground px-1"
+                          >
+                            ⋯
+                          </button>
 
-    {openColumnMenuId === column.id && (
-      <div
-        className="absolute right-0 mt-2 w-40 bg-popover border rounded-md shadow-md z-50"
-        onMouseLeave={() => setOpenColumnMenuId(null)}
-      >
-        {!isFirst && (
-          <button
-            onClick={() => moveColumnLeft(column)}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-          >
-            Move Left
-          </button>
-        )}
-
-        {!isLast && (
-          <button
-            onClick={() => moveColumnRight(column)}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-          >
-            Move Right
-          </button>
-        )}
-
-        <button
-          onClick={() => {
-            const targetColumnId =
-              !isLast
-                ? space.boardColumns[columnIndex + 1].id
-                : space.boardColumns[columnIndex - 1].id;
-
-            if (
-              confirm(`Delete column "${column.name}" and move items?`)
-            ) {
-              deleteColumn(column, targetColumnId);
-            }
-          }}
-          className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-muted"
-        >
-          Delete
-        </button>
-      </div>
-    )}
-  </div>
-)}
-</div>
-            <div className="flex flex-col flex-1 min-h-0">
-            <DroppableColumn columnId={column.id}>
-              {/* INLINE CREATE INPUT (TOP) */}
-              {creatingColumnId === column.id && columnItems.length === 0 && (
-    <div className="bg-background border rounded-md p-2 space-y-2">
-      <textarea
-        value={newTaskSummary}
-        autoFocus
-        onChange={(e) => {
-          setNewTaskSummary(e.target.value);
-        }}
-        placeholder="What needs to be done?"
-        className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
-      />
-
-      <div className="flex items-center gap-2">
-        <Button size="sm">✔</Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            setCreatingColumnId(null);
-            setNewTaskSummary("");
-          }}
-        >
-          ✖
-        </Button>
-      </div>
-    </div>
-  )}
-              {/* + Create (TOP when empty) */}
-{hoveredColumnId === column.id && columnItems.length === 0 && (
-  <button
-    onClick={() => setCreatingColumnId(column.id)}
-    className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
-  >
-    + Create
-  </button>
-)}
-              {columnItems.map((item) => (
-                <DraggableItem key={item.id} item={item}>
-                   {({ listeners }) => (
-                  <Card
-                  
-                  className="group hover:shadow-md transition-all relative"
-                >
-                    <CardContent className="p-3 space-y-2">
-                    <div
-  className="flex justify-between items-start gap-2 cursor-pointer"
-  onClick={() => setSelectedWorkItemId(item.id)}
->
-
-    {/* DRAG HANDLE */}
-    <div
-      {...listeners}
-    
-      onClick={(e) => e.stopPropagation()}
-      className="cursor-grab text-muted-foreground hover:text-foreground select-none pt-1"
-      title="Drag"
-    >
-      ⠿
-    </div>
-                        {/* LEFT: SUMMARY */}
-                        <div className="flex-1 relative">
-                          {editingItemId === item.id ? (
-                            <textarea
-                              value={editingSummary}
-                              autoFocus
-                              rows={1}
-                              onChange={(e) => {
-                                setEditingSummary(e.target.value);
-                                e.target.style.height = "auto";
-                                e.target.style.height = `${e.target.scrollHeight}px`;
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  saveSummary(item);
-                                }
-                                if (e.key === "Escape") {
-                                  setEditingItemId(null);
-                                }
-                              }}
-                              onBlur={() => saveSummary(item)}
-                              className="w-full resize-none text-sm border rounded px-2 py-1 bg-yellow-50 focus:outline-none"
-                            />
-                          ) : (
+                          {openColumnMenuId === column.id && (
                             <div
-                              className="group relative cursor-text pr-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingItemId(item.id);
-                                setEditingSummary(item.summary);
-                              }}
+                              className="absolute right-0 mt-2 w-40 bg-popover border rounded-md shadow-md z-50"
+                              onMouseLeave={() => setOpenColumnMenuId(null)}
                             >
-                              <p className="text-sm font-medium whitespace-pre-wrap break-words">
-                                {item.summary}
-                              </p>
-                              <Pencil
-                                size={14}
-                                className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                              />
+                              {!isFirst && (
+                                <button
+                                  onClick={() => moveColumnLeft(column)}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                                >
+                                  Move Left
+                                </button>
+                              )}
+
+                              {!isLast && (
+                                <button
+                                  onClick={() => moveColumnRight(column)}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                                >
+                                  Move Right
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  const targetColumnId =
+                                    !isLast
+                                      ? space.boardColumns[columnIndex + 1].id
+                                      : space.boardColumns[columnIndex - 1].id;
+
+                                  if (
+                                    confirm(`Delete column "${column.name}" and move items?`)
+                                  ) {
+                                    deleteColumn(column, targetColumnId);
+                                  }
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-muted"
+                              >
+                                Delete
+                              </button>
                             </div>
                           )}
                         </div>
-
-                        {/* RIGHT: MENU */}
-                        <DropdownMenu modal={false}>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              onPointerDown={(e) => {
+                      )}
+                    </div>
+                    <div className="flex flex-col flex-1 min-h-0">
+                      <DroppableColumn columnId={column.id}>
+                        {/* INLINE CREATE INPUT (TOP) */}
+                        {creatingColumnId === column.id && columnItems.length === 0 && (
+                          <div className="bg-background border rounded-md p-2 space-y-2">
+                            <textarea
+                              value={newTaskSummary}
+                              autoFocus
+                              onChange={(e) => {
+                                setNewTaskSummary(e.target.value);
                               }}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground px-1"
-                            >
-                              ⋯
-                            </button>
-                          </DropdownMenuTrigger>
+                              placeholder="What needs to be done?"
+                              className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
+                            />
 
-                          <DropdownMenuContent
-                            align="end"
-                            sideOffset={4}
-                            className="w-56 z-[9999]"
-                            onClick={(e) => e.stopPropagation()}
+                            <div className="flex items-center gap-2">
+                              <Button size="sm">✔</Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }}
+                              >
+                                ✖
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {/* + Create (TOP when empty) */}
+                        {hoveredColumnId === column.id && columnItems.length === 0 && (
+                          <button
+                            onClick={() => setCreatingColumnId(column.id)}
+                            className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
                           >
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setSelectedWorkItemId(item.id)
-                              }
-                            >
-                              Open
-                            </DropdownMenuItem>
+                            + Create
+                          </button>
+                        )}
+                        {columnItems.map((item) => (
+                          <DraggableItem key={item.id} item={item}>
+                            {({ listeners }) => (
+                              <Card
 
-                            <DropdownMenuSeparator />
+                                className="group hover:shadow-md transition-all relative"
+                              >
+                                <CardContent className="p-3 space-y-2">
+                                  <div
+                                    className="flex justify-between items-start gap-2 cursor-pointer"
+                                    onClick={() => setSelectedWorkItemId(item.id)}
+                                  >
 
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                Move work item
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-44">
-                                <DropdownMenuItem
-                                  onClick={() => moveItemToTop(item)}
-                                >
-                                  To the top
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => moveItemUp(item)}
-                                >
-                                  Up
-                                </DropdownMenuItem>
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
+                                    {/* DRAG HANDLE */}
+                                    <div
+                                      {...listeners}
 
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                Change status
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-44">
-                                {space.boardColumns
-                                  ?.sort((a, b) => a.order - b.order)
-                                  .map((col) => (
-                                    <DropdownMenuItem
-                                      key={col.id}
-                                      onClick={() =>
-                                        changeStatus(item, col.id)
-                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="cursor-grab text-muted-foreground hover:text-foreground select-none pt-1"
+                                      title="Drag"
                                     >
-                                      {col.name}
-                                    </DropdownMenuItem>
-                                  ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
+                                      ⠿
+                                    </div>
+                                    {/* LEFT: SUMMARY */}
+                                    <div className="flex-1 relative">
+                                      {editingItemId === item.id ? (
+                                        <textarea
+                                          value={editingSummary}
+                                          autoFocus
+                                          rows={1}
+                                          onChange={(e) => {
+                                            setEditingSummary(e.target.value);
+                                            e.target.style.height = "auto";
+                                            e.target.style.height = `${e.target.scrollHeight}px`;
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                              e.preventDefault();
+                                              saveSummary(item);
+                                            }
+                                            if (e.key === "Escape") {
+                                              setEditingItemId(null);
+                                            }
+                                          }}
+                                          onBlur={() => saveSummary(item)}
+                                          className="w-full resize-none text-sm border rounded px-2 py-1 bg-yellow-50 focus:outline-none"
+                                        />
+                                      ) : (
+                                        <div
+                                          className="group relative cursor-text pr-6"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingItemId(item.id);
+                                            setEditingSummary(item.summary);
+                                          }}
+                                        >
+                                          <p className="text-sm font-medium whitespace-pre-wrap break-words">
+                                            {item.summary}
+                                          </p>
+                                          <Pencil
+                                            size={14}
+                                            className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
 
-                            <DropdownMenuSeparator />
+                                    {/* RIGHT: MENU */}
+                                    <DropdownMenu modal={false}>
+                                      <DropdownMenuTrigger asChild>
+                                        <button
+                                          onPointerDown={(e) => {
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                          }}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground px-1"
+                                        >
+                                          ⋯
+                                        </button>
+                                      </DropdownMenuTrigger>
 
-                            <DropdownMenuItem
-                              onClick={() => toggleFlag(item)}
-                            >
-                              Add flag
-                            </DropdownMenuItem>
+                                      <DropdownMenuContent
+                                        align="end"
+                                        sideOffset={4}
+                                        className="w-56 z-[9999]"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            setSelectedWorkItemId(item.id)
+                                          }
+                                        >
+                                          Open
+                                        </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() => openLabelDialog(item)}
-                            >
-                              Add label
-                            </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
 
-                            <DropdownMenuSeparator />
+                                        <DropdownMenuSub>
+                                          <DropdownMenuSubTrigger>
+                                            Move work item
+                                          </DropdownMenuSubTrigger>
+                                          <DropdownMenuSubContent className="w-44">
+                                            <DropdownMenuItem
+                                              onClick={() => moveItemToTop(item)}
+                                            >
+                                              To the top
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => moveItemUp(item)}
+                                            >
+                                              Up
+                                            </DropdownMenuItem>
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
 
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setDeletingItem(item)}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                                        <DropdownMenuSub>
+                                          <DropdownMenuSubTrigger>
+                                            Change status
+                                          </DropdownMenuSubTrigger>
+                                          <DropdownMenuSubContent className="w-44">
+                                            {space.boardColumns
+                                              ?.sort((a, b) => a.order - b.order)
+                                              .map((col) => (
+                                                <DropdownMenuItem
+                                                  key={col.id}
+                                                  onClick={() =>
+                                                    changeStatus(item, col.id)
+                                                  }
+                                                >
+                                                  {col.name}
+                                                </DropdownMenuItem>
+                                              ))}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
 
-                      {/* FOOTER */}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono">{item.key}</span>
-                          <StoryPoints
-                            value={item.storyPoints}
-                            onSave={async (newValue) => {
-                              const client = getGraphQLClient(
-                                token || undefined
-                              );
-                              await client.request(
-                                UPDATE_WORK_ITEM_DETAILS,
-                                {
-                                  itemId: item.id,
-                                  input: { storyPoints: newValue },
-                                }
-                              );
-                              fetchData();
-                            }}
-                          />
-                        </div>
+                                        <DropdownMenuSeparator />
 
-                        <div className="flex items-center gap-2">
-                          {item.assignee && (
-                            <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                              {item.assignee.userName
-                                .charAt(0)
-                                .toUpperCase()}
-                            </span>
-                          )}
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1 py-0 h-5"
+                                        <DropdownMenuItem
+                                          onClick={() => toggleFlag(item)}
+                                        >
+                                          Add flag
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                          onClick={() => openLabelDialog(item)}
+                                        >
+                                          Add label
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuSeparator />
+
+                                        <DropdownMenuItem
+                                          className="text-destructive"
+                                          onClick={() => setDeletingItem(item)}
+                                        >
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+
+                                  {/* FOOTER */}
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono">{item.key}</span>
+                                      <StoryPoints
+                                        value={item.storyPoints}
+                                        onSave={async (newValue) => {
+                                          const client = getGraphQLClient(
+                                            token || undefined
+                                          );
+                                          await client.request(
+                                            UPDATE_WORK_ITEM_DETAILS,
+                                            {
+                                              itemId: item.id,
+                                              input: { storyPoints: newValue },
+                                            }
+                                          );
+                                          fetchData();
+                                        }}
+                                      />
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      {item.assignee && (
+                                        <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                          {item.assignee.userName
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                        </span>
+                                      )}
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] px-1 py-0 h-5"
+                                      >
+                                        {item.priority}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </DraggableItem>
+                        ))}
+                        {/* INLINE CREATE INPUT (BOTTOM) */}
+                        {creatingColumnId === column.id && columnItems.length > 0 && (
+                          <div className="bg-background border rounded-md p-2 space-y-2">
+                            <textarea
+                              value={newTaskSummary}
+                              autoFocus
+
+                              onChange={(e) => {
+                                setNewTaskSummary(e.target.value);
+                              }}
+                              placeholder="What needs to be done?"
+                              className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
+                            />
+
+                            <div className="flex items-center gap-2">
+                              <Button size="sm">✔</Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }}
+                              >
+                                ✖
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {/* + Create (BOTTOM when items exist) */}
+                        {hoveredColumnId === column.id && columnItems.length > 0 && (
+                          <button
+                            onClick={() => setCreatingColumnId(column.id)}
+                            className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
                           >
-                            {item.priority}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  )}
-                </DraggableItem>
-              ))}
-              {/* INLINE CREATE INPUT (BOTTOM) */}
-              {creatingColumnId === column.id && columnItems.length > 0 && (
-    <div className="bg-background border rounded-md p-2 space-y-2">
-      <textarea
-        value={newTaskSummary}
-        autoFocus
-      
-        onChange={(e) => {
-          setNewTaskSummary(e.target.value);
-        }}
-        placeholder="What needs to be done?"
-        className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
-      />
-
-      <div className="flex items-center gap-2">
-        <Button size="sm">✔</Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            setCreatingColumnId(null);
-            setNewTaskSummary("");
-          }}
-        >
-          ✖
-        </Button>
-      </div>
-    </div>
-  )}
-              {/* + Create (BOTTOM when items exist) */}
-{hoveredColumnId === column.id && columnItems.length > 0 && (
-  <button
-    onClick={() => setCreatingColumnId(column.id)}
-    className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
-  >
-    + Create
-  </button>
-)}
-            </DroppableColumn>
+                            + Create
+                          </button>
+                        )}
+                      </DroppableColumn>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
-          </div>  
-        );
-      })}
-  </div>
 
-  {/* ================= DRAG OVERLAY ================= */}
-  <DragOverlay>
-    {activeItemId ? (
-      <Card className="shadow-xl w-[260px] rotate-2">
-        <CardContent className="p-3">
-          <p className="text-sm font-medium">
-            {workItems.find((i) => i.id === activeItemId)?.summary}
-          </p>
-        </CardContent>
-      </Card>
-    ) : null}
-  </DragOverlay>
-</DndContext>
-</div>
+          {/* ================= DRAG OVERLAY ================= */}
+          <DragOverlay>
+            {activeItemId ? (
+              <Card className="shadow-xl w-[260px] rotate-2">
+                <CardContent className="p-3">
+                  <p className="text-sm font-medium">
+                    {workItems.find((i) => i.id === activeItemId)?.summary}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
 
       <EditWorkItemDialog
@@ -944,32 +944,32 @@ const isLast = columnIndex === totalColumns - 1;
         members={space.members || []}
       />
       <AlertDialog
-  open={!!deletingItem}
-  onOpenChange={() => setDeletingItem(null)}
->
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Delete task?</AlertDialogTitle>
-      <AlertDialogDescription>
-        This action cannot be undone.
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-
-    <AlertDialogFooter>
-      <AlertDialogCancel>Cancel</AlertDialogCancel>
-      <AlertDialogAction
-        className="bg-destructive"
-        onClick={handleDeleteItem}
+        open={!!deletingItem}
+        onOpenChange={() => setDeletingItem(null)}
       >
-        Delete
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive"
+              onClick={handleDeleteItem}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </MainLayout>
   );
-        }
+}
 
 function AddColumnForm({ spaceId, onSuccess }: { spaceId: string, onSuccess: () => void }) {
   const [name, setName] = useState("");
