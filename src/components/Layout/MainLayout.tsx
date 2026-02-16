@@ -50,10 +50,10 @@ export function MainLayout({ children, spaceName, spaceType }: MainLayoutProps) 
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
-      <div className="flex min-h-screen w-full">
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="min-h-screen"
+      <div className="h-screen w-full overflow-hidden">
+            <ResizablePanelGroup
+            direction="horizontal"
+           className="h-full"
           onLayout={(sizes) => {
             if (sizes[0] > 0) {
               localStorage.setItem("sidebar-size", JSON.stringify(sizes[0]));
@@ -74,14 +74,14 @@ export function MainLayout({ children, spaceName, spaceType }: MainLayoutProps) 
             {!isCollapsed && <AppSidebar />}
           </ResizablePanel>
           <ResizableHandle withHandle className="hover:bg-primary/20 transition-colors" />
-          <ResizablePanel defaultSize={isCollapsed ? 100 : 85} minSize={60}>
-            <div className="flex-1 flex flex-col h-full">
+          <ResizablePanel defaultSize={isCollapsed ? 100 : 85} minSize={60} className="h-full">
+          <div className="h-full flex flex-col overflow-hidden">
               <TopNavBar
                 sidebarCollapsed={isCollapsed}
                 onToggleSidebar={handleCollapse}
               />
               <WorkAreaNav spaceName={spaceName} spaceType={spaceType} />
-              <main className="flex-1 overflow-auto bg-background">
+              <main className="flex-1 overflow-hidden bg-background relative">
                 {children}
               </main>
             </div>

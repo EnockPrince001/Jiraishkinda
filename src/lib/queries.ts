@@ -185,6 +185,25 @@ export const MOVE_WORK_ITEM = gql`
   }
 `;
 
+export const MOVE_WORK_ITEM_UP = gql`
+  mutation MoveWorkItemUp($workItemId: UUID!) {
+    moveWorkItemUp(workItemId: $workItemId) {
+      id
+      order
+      boardColumnId
+    }
+  }
+`;
+
+export const MOVE_WORK_ITEM_TO_TOP = gql`
+  mutation MoveWorkItemToTop($workItemId: UUID!) {
+    moveWorkItemToTop(workItemId: $workItemId) {
+      id
+      order
+      boardColumnId
+    }
+  }
+`;
 export const UPDATE_WORK_ITEM_ASSIGNEE = gql`
   mutation UpdateWorkItemAssignee($itemId: UUID!, $assigneeId: UUID) {
     updateWorkItem(workItemId: $itemId, input: { assigneeId: $assigneeId }) {
@@ -302,5 +321,23 @@ export const ADD_BOARD_COLUMN = gql`
       order
       isSystem
     }
+  }
+`;
+
+export const MOVE_BOARD_COLUMN_LEFT = gql`
+  mutation MoveBoardColumnLeft($columnId: UUID!) {
+    moveBoardColumnLeft(columnId: $columnId)
+  }
+`;
+
+export const MOVE_BOARD_COLUMN_RIGHT = gql`
+  mutation MoveBoardColumnRight($columnId: UUID!) {
+    moveBoardColumnRight(columnId: $columnId)
+  }
+`;
+
+export const DELETE_BOARD_COLUMN = gql`
+  mutation DeleteBoardColumn($columnId: UUID!, $targetColumnId: UUID!) {
+    deleteBoardColumn(columnId: $columnId, targetColumnId: $targetColumnId)
   }
 `;
