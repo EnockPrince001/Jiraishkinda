@@ -59,6 +59,7 @@ export const GET_WORK_ITEMS = gql`
       key
       summary
       boardColumnId
+      order 
       priority
       flagged
       storyPoints
@@ -326,13 +327,21 @@ export const ADD_BOARD_COLUMN = gql`
 
 export const MOVE_BOARD_COLUMN_LEFT = gql`
   mutation MoveBoardColumnLeft($columnId: UUID!) {
-    moveBoardColumnLeft(columnId: $columnId)
+    moveBoardColumnLeft(columnId: $columnId) {
+      id
+      name
+      order
+    }
   }
 `;
 
 export const MOVE_BOARD_COLUMN_RIGHT = gql`
   mutation MoveBoardColumnRight($columnId: UUID!) {
-    moveBoardColumnRight(columnId: $columnId)
+    moveBoardColumnRight(columnId: $columnId) {
+      id
+      name
+      order
+    }
   }
 `;
 
