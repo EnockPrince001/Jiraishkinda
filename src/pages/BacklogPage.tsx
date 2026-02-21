@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Play, CheckCircle2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT,UPDATE_WORK_ITEM_DETAILS,} from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -75,9 +75,10 @@ export default function BacklogPage() {
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingSummary, setEditingSummary] = useState("");
   const { token } = useAuth();
   const { toast } = useToast();
-
   const fetchData = async () => {
     if (!spaceKey) return;
 
@@ -102,7 +103,35 @@ export default function BacklogPage() {
       setLoading(false);
     }
   };
-
+  const saveSummary = async (item: WorkItem) => {
+    if (editingSummary.trim() === item.summary) {
+      setEditingItemId(null);
+      return;
+    }
+  
+    try {
+      const client = getGraphQLClient(token || undefined);
+  
+      await client.request(UPDATE_WORK_ITEM_DETAILS, {
+        itemId: item.id,
+        input: {
+          summary: editingSummary.trim(),
+        },
+      });
+  
+      await fetchData(); // reload from backend
+    } catch (error) {
+      console.error("Failed to update summary", error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes",
+        variant: "destructive",
+      });
+    } finally {
+      setEditingItemId(null);
+    }
+  };
+ 
   const handleStartSprint = async (sprintId: string) => {
     try {
       const client = getGraphQLClient(token || undefined);
@@ -269,8 +298,41 @@ export default function BacklogPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
-                            <span className="text-sm">{item.summary}</span>
-                          </div>
+                            {editingItemId === item.id ? (
+          
+            <input
+              value={editingSummary}
+              autoFocus
+              onChange={(e) => setEditingSummary(e.target.value)}
+              onBlur={() => {
+                // ❌ DO NOT SAVE HERE
+                setEditingItemId(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  saveSummary(item); // ✅ SAVE ONLY HERE
+                }
+                if (e.key === "Escape") {
+                  setEditingItemId(null);
+                }
+              }}
+              className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
+            />
+          ) : (
+            <span
+              className="text-sm cursor-text hover:bg-muted px-1 rounded"
+              onClick={(e) => {
+                e.stopPropagation(); // 🚨 IMPORTANT
+                setEditingItemId(item.id);
+                setEditingSummary(item.summary);
+              }}
+            >
+              {item.summary}
+            </span>
+          )}
+          
+</div>             
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Badge variant="outline">{item.priority}</Badge>
                             {item.storyPoints && (
@@ -326,8 +388,41 @@ export default function BacklogPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
-                        <span className="text-sm">{item.summary}</span>
-                      </div>
+                        {editingItemId === item.id ? (
+      <input
+        value={editingSummary}
+        autoFocus
+        onChange={(e) => setEditingSummary(e.target.value)}
+        onBlur={() => {
+          // ❌ DO NOT SAVE HERE
+          setEditingItemId(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            saveSummary(item); // ✅ SAVE ONLY HERE
+          }
+          if (e.key === "Escape") {
+            setEditingItemId(null);
+          }
+        }}
+        className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
+      />
+    ) : (
+      <span
+        className="text-sm cursor-text hover:bg-muted px-1 rounded"
+        onClick={(e) => {
+          e.stopPropagation(); // 🚨 IMPORTANT
+          setEditingItemId(item.id);
+          setEditingSummary(item.summary);
+        }}
+      >
+        {item.summary}
+      </span>
+    )}
+    
+  </div>
+                      
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <Badge variant="outline">{item.priority}</Badge>
                         {item.storyPoints && (
