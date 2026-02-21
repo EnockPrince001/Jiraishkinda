@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, TOGGLE_WORK_ITEM_FLAG, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil } from "lucide-react";
 import { useDraggable, } from "@dnd-kit/core";
@@ -133,29 +133,26 @@ export default function BoardPage() {
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
-
+  
     if (!over) return;
-
+  
     const itemId = active.id;
     const newColumnId = over.id;
-
+  
     const item = workItems.find(i => i.id === itemId);
     if (!item || item.boardColumnId === newColumnId) return;
-
-    // Optimistic UI update
-    setWorkItems(prev =>
-      prev.map(i =>
-        i.id === itemId ? { ...i, boardColumnId: newColumnId } : i
-      )
-    );
-
-    // Persist to backend
+  
     try {
       const client = getGraphQLClient(token || undefined);
+  
       await client.request(UPDATE_WORK_ITEM, {
         itemId,
         boardColumnId: newColumnId,
       });
+  
+      // ✅ Re-fetch from backend to get CORRECT order
+      await fetchData();
+  
     } catch (error) {
       console.error(error);
       toast({
@@ -163,10 +160,8 @@ export default function BoardPage() {
         description: "Failed to move task",
         variant: "destructive",
       });
-      fetchData(); // rollback
     }
   };
-
 
 
   const DraggableItem = ({ item, children }) => {
@@ -267,12 +262,12 @@ export default function BoardPage() {
   const moveItemUp = async (item) => {
     try {
       const client = getGraphQLClient(token || undefined);
-
+  
       await client.request(MOVE_WORK_ITEM_UP, {
         workItemId: item.id,
       });
-
-      fetchData(); // reload ordered items
+  
+      fetchData(); // ✅ reload from server
     } catch (error) {
       console.error(error);
       toast({
@@ -284,23 +279,23 @@ export default function BoardPage() {
   };
 
   const moveItemToTop = async (item) => {
-    try {
-      const client = getGraphQLClient(token || undefined);
+  try {
+    const client = getGraphQLClient(token || undefined);
 
-      await client.request(MOVE_WORK_ITEM_TO_TOP, {
-        workItemId: item.id,
-      });
+    await client.request(MOVE_WORK_ITEM_TO_TOP, {
+      workItemId: item.id,
+    });
 
-      fetchData();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Error",
-        description: "Failed to move item to top",
-        variant: "destructive",
-      });
-    }
-  };
+    fetchData(); // ✅ reload from server
+  } catch (error) {
+    console.error(error);
+    toast({
+      title: "Error",
+      description: "Failed to move item to top",
+      variant: "destructive",
+    });
+  }
+};
 
   const changeStatus = async (item, columnId) => {
     try {
@@ -323,11 +318,23 @@ export default function BoardPage() {
   };
 
   const toggleFlag = async (item) => {
-    console.log("Toggle flag", item.key);
-
-    // later:
-    // await client.request(TOGGLE_FLAG, {...})
-    // fetchData();
+    try {
+      const client = getGraphQLClient(token || undefined);
+  
+      await client.request(TOGGLE_WORK_ITEM_FLAG, {
+        itemId: item.id,
+        flagged: !item.flagged, // 🔁 toggle
+      });
+  
+      fetchData(); // refresh board
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle flag",
+        variant: "destructive",
+      });
+    }
   };
 
   const openLabelDialog = (item) => {
@@ -669,7 +676,9 @@ export default function BoardPage() {
                             + Create
                           </button>
                         )}
-                        {columnItems.map((item) => (
+               {[...columnItems]
+  .sort((a, b) => a.order - b.order)
+  .map((item) => (
                           <DraggableItem key={item.id} item={item}>
                             {({ listeners }) => (
                               <Card
@@ -725,9 +734,15 @@ export default function BoardPage() {
                                             setEditingSummary(item.summary);
                                           }}
                                         >
-                                          <p className="text-sm font-medium whitespace-pre-wrap break-words">
-                                            {item.summary}
-                                          </p>
+
+<p className="text-sm font-medium whitespace-pre-wrap break-words flex items-start gap-1">
+  {item.flagged && (
+    <span title="Flagged" className="text-red-500">
+      🚩
+    </span>
+  )}
+  <span>{item.summary}</span>
+</p>
                                           <Pencil
                                             size={14}
                                             className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
@@ -810,7 +825,7 @@ export default function BoardPage() {
                                         <DropdownMenuItem
                                           onClick={() => toggleFlag(item)}
                                         >
-                                          Add flag
+                                           {item.flagged ? "Remove flag" : "Add flag"}
                                         </DropdownMenuItem>
 
                                         <DropdownMenuItem
