@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 const MAX_SUMMARY_LENGTH = 150;
 
 interface CreateWorkItemDialogProps {
-  spaceId: string;
+  spaceId: string;          // ✅ REQUIRED
   sprintId?: string;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
@@ -37,20 +37,21 @@ export function CreateWorkItemDialog({
   spaceId,
   sprintId,
   onSuccess,
-  trigger
+  trigger,
 }: CreateWorkItemDialogProps) {
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
-  // REMOVED: const [status, setStatus] = useState(...) 
-
   const [loading, setLoading] = useState(false);
+
   const { token } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!summary.trim()) return;
+
     if (summary.length > MAX_SUMMARY_LENGTH) {
       toast({
         title: "Validation Error",
@@ -61,15 +62,16 @@ export function CreateWorkItemDialog({
     }
 
     setLoading(true);
+
     try {
       const client = getGraphQLClient(token || undefined);
+
       await client.request(CREATE_WORK_ITEM, {
         input: {
+          spaceId,               // ✅ FIX: ALWAYS INCLUDED
           summary,
           priority,
-          // REMOVED: status, 
-          spaceId,
-          ...(sprintId && { sprintId }),
+          ...(sprintId ? { sprintId } : {}),
         },
       });
 
@@ -103,6 +105,7 @@ export function CreateWorkItemDialog({
           </Button>
         )}
       </DialogTrigger>
+
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Work Item</DialogTitle>
@@ -110,15 +113,24 @@ export function CreateWorkItemDialog({
             Add a new work item to your space
           </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            {/* Summary */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="summary">Summary *</Label>
-                <span className={`text-xs ${summary.length > MAX_SUMMARY_LENGTH ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                <span
+                  className={`text-xs ${
+                    summary.length > MAX_SUMMARY_LENGTH
+                      ? "text-destructive font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                >
                   {summary.length}/{MAX_SUMMARY_LENGTH}
                 </span>
               </div>
+
               <Input
                 id="summary"
                 value={summary}
@@ -126,13 +138,21 @@ export function CreateWorkItemDialog({
                 placeholder="Enter work item summary"
                 required
                 maxLength={MAX_SUMMARY_LENGTH + 10}
-                className={summary.length > MAX_SUMMARY_LENGTH ? 'border-destructive focus-visible:ring-destructive' : ''}
+                className={
+                  summary.length > MAX_SUMMARY_LENGTH
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+                }
               />
+
               {summary.length > MAX_SUMMARY_LENGTH && (
-                <p className="text-xs text-destructive">Summary is too long</p>
+                <p className="text-xs text-destructive">
+                  Summary is too long
+                </p>
               )}
             </div>
 
+            {/* Priority */}
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -148,11 +168,15 @@ export function CreateWorkItemDialog({
               </Select>
             </div>
 
-            {/* REMOVED: Status Select Field - items auto-assign to first column */}
+            {/* Status intentionally removed – auto-assigned */}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

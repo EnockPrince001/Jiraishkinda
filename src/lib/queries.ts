@@ -304,3 +304,23 @@ export const ADD_BOARD_COLUMN = gql`
     }
   }
 `;
+export const SEARCH_WORK_ITEMS = gql`
+  query SearchWorkItems($spaceKey: String!, $search: String) { # Removed ! to make it optional
+    workItemsForSpace(spaceKey: $spaceKey) {
+      id
+      key
+      summary
+    }
+  }
+`;
+
+export const SEARCH_EPICS = gql`
+  query SearchEpics($spaceKey: String!) {
+    workItemsForSpace(spaceKey: $spaceKey) {
+      id
+      key
+      summary
+      priority
+    }
+  }
+`;
