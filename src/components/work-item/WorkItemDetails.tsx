@@ -5,16 +5,38 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkItemDetailsType } from "../EditWorkItemDialog";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Calendar } from "lucide-react";
+import { StoryPoints } from "../StoryPoints";
+import { getGraphQLClient } from "@/lib/graphql-client";
+import { UPDATE_WORK_ITEM_DETAILS } from "@/lib/queries";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface WorkItemDetailsProps {
   workItem: WorkItemDetailsType;
   boardColumns: any[];
   members: any[];
+  onUpdate: () => Promise<void>;
 }
 
-export function WorkItemDetails({ workItem, boardColumns, members }: WorkItemDetailsProps) {
+export function WorkItemDetails({ workItem, boardColumns, members, onUpdate }: WorkItemDetailsProps) {
+  const { token } = useAuth();
+  const { toast } = useToast();
   const currentColumn = boardColumns.find(c => c.id === workItem.boardColumnId);
+
+  const handleUpdate = async (input: any) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+      await client.request(UPDATE_WORK_ITEM_DETAILS, {
+        itemId: workItem.id,
+        input
+      });
+      await onUpdate();
+      toast({ title: "Success", description: "Task updated" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update task", variant: "destructive" });
+    }
+  };
 
   const getStatusColor = (columnName: string) => {
     const name = columnName?.toUpperCase() || "";
@@ -27,7 +49,10 @@ export function WorkItemDetails({ workItem, boardColumns, members }: WorkItemDet
   return (
     <aside className="flex-[3] border-l border-t bg-slate-50/50">
       <ScrollArea className="h-full p-6 space-y-6">
-        <Select value={workItem.boardColumnId} onValueChange={() => {}}>
+        <Select 
+          value={workItem.boardColumnId} 
+          onValueChange={(val) => handleUpdate({ boardColumnId: val })}
+        >
           <SelectTrigger className={cn("w-fit min-w-[100px] border-none font-bold text-xs uppercase h-8", getStatusColor(currentColumn?.name || ""))}>
             <SelectValue />
           </SelectTrigger>
@@ -56,6 +81,24 @@ export function WorkItemDetails({ workItem, boardColumns, members }: WorkItemDet
                 <Avatar className="h-6 w-6"><AvatarFallback>R</AvatarFallback></Avatar>
                 <span>{workItem.reporter?.userName || "Unknown"}</span>
               </div>
+            </div>
+
+            <div className="grid grid-cols-5 items-center text-sm">
+               <Label className="col-span-2 text-slate-500 font-medium">Story Points</Label>
+               <div className="col-span-3 px-1">
+                 <StoryPoints 
+                   value={workItem.storyPoints} 
+                   onSave={(val) => handleUpdate({ storyPoints: val })} 
+                 />
+               </div>
+            </div>
+
+            <div className="grid grid-cols-5 items-center text-sm">
+               <Label className="col-span-2 text-slate-500 font-medium">Due Date</Label>
+               <div className="col-span-3 flex items-center gap-2 px-1 text-slate-600">
+                 <Calendar className="h-4 w-4" />
+                 <span>{workItem.dueDate ? new Date(workItem.dueDate).toLocaleDateString() : "None"}</span>
+               </div>
             </div>
           </CollapsibleContent>
         </Collapsible>

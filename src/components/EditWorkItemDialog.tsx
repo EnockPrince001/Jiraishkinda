@@ -175,7 +175,12 @@ export function EditWorkItemDialog({
               </ScrollArea>
 
               {/* RIGHT COLUMN (Sidebar) */}
-              <WorkItemDetails workItem={workItem} boardColumns={boardColumns} members={members} />
+              <WorkItemDetails
+                workItem={workItem}
+                boardColumns={boardColumns}
+                members={members}
+                onUpdate={fetchWorkItemDetails}
+              />
             </div>
 
             {/* CLOSE BUTTON */}

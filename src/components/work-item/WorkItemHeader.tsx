@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Bookmark, Lock, Eye, Share2, MoreHorizontal, Maximize2 } from "lucide-react";
+import { Loader2, Bookmark, Lock, Eye, Share2, MoreHorizontal, Maximize2, Flag } from "lucide-react";
 import { WorkItemDetailsType } from "../EditWorkItemDialog";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { UPDATE_WORK_ITEM_DETAILS } from "@/lib/queries";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface WorkItemHeaderProps {
   workItem: WorkItemDetailsType;
@@ -22,6 +23,7 @@ export function WorkItemHeader({
   const [editingSummary, setEditingSummary] = useState(false);
   const [summary, setSummary] = useState(workItem.summary);
   const [saving, setSaving] = useState(false);
+  const [togglingFlag, setTogglingFlag] = useState(false);
 
   const { token } = useAuth();
   const { toast } = useToast();
@@ -40,6 +42,23 @@ export function WorkItemHeader({
       toast({ title: "Error", description: "Failed to update task", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleFlag = async () => {
+    try {
+      setTogglingFlag(true);
+      const client = getGraphQLClient(token || undefined);
+      await client.request(UPDATE_WORK_ITEM_DETAILS, {
+        itemId: workItem.id,
+        input: { flagged: !workItem.flagged }
+      });
+      await fetchWorkItemDetails();
+      toast({ title: "Success", description: workItem.flagged ? "Flag removed" : "Task flagged" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to toggle flag", variant: "destructive" });
+    } finally {
+      setTogglingFlag(false);
     }
   };
 
@@ -63,6 +82,15 @@ export function WorkItemHeader({
               </Button>
             </div>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleToggleFlag}
+            disabled={togglingFlag}
+            className={cn(workItem.flagged && "text-red-500 hover:text-red-600 hover:bg-red-50")}
+          >
+            {togglingFlag ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className={cn("h-4 w-4", workItem.flagged && "fill-current")} />}
+          </Button>
           <Button variant="ghost" size="icon"><Lock className="h-4 w-4 text-muted-foreground" /></Button>
           <Button variant="ghost" size="icon"><Eye className="h-4 w-4 text-muted-foreground" /></Button>
           <Button variant="ghost" size="icon"><Share2 className="h-4 w-4 text-muted-foreground" /></Button>
