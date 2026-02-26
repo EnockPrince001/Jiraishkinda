@@ -1,4 +1,4 @@
-const IDENTITY_API_URL = 'http://localhost:5080';
+const IDENTITY_API_URL = 'https://localhost:7275';
 export interface LoginRequest {
   email: string;
   password: string;
@@ -28,7 +28,7 @@ export interface ResetPasswordRequest {
 
 export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${GRAPHQL_ENDPOINT}/api/auth/login`, {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export const authApi = {
   },
 
   async register(data: RegisterRequest): Promise<void> {
-    const response = await fetch(`${GRAPHQL_ENDPOINT}/api/auth/register`, {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export const authApi = {
   },
 
   async forgotPassword(data: ForgotPasswordRequest): Promise<{ message: string }> {
-    const response = await fetch(`${GRAPHQL_ENDPOINT}/api/auth/forgot-password`, {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ export const authApi = {
   },
 
   async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
-    const response = await fetch(`${GRAPHQL_ENDPOINT}/api/auth/reset-password`, {
+    const response = await fetch(`${IDENTITY_API_URL}/api/auth/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

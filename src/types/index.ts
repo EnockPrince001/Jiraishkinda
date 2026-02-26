@@ -32,6 +32,7 @@ export interface WorkItem {
   summary: string;
   description?: string;
   boardColumnId: string; // Replaces status
+  order: number;
   priority: WorkItemPriority;
   assignee?: UserStub;
   reporter: UserStub;
