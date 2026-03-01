@@ -59,6 +59,55 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
+
+// Move these OUTSIDE the main component to prevent redundant re-mounts which cause typing issues (cursor jumping)
+const DroppableColumn = ({ columnId, children }: { columnId: string, children: React.ReactNode }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: columnId,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+  flex flex-col space-y-3 flex-1 min-h-[400px] h-full rounded-lg p-2
+  ${isOver ? "bg-primary/10" : "bg-muted/10"}
+`}
+    >
+      {children}
+    </div>
+  );
+};
+
+const DraggableItem = ({ item, children }: { item: any, children: any }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+  });
+
+  const style = {
+    transition,
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+    >
+      {typeof children === "function"
+        ? children({ listeners })
+        : children}
+    </div>
+  );
+};
 export default function BoardPage() {
   const { spaceKey } = useParams();
   const [space, setSpace] = useState<Space | null>(null);
@@ -76,6 +125,7 @@ export default function BoardPage() {
   const [confirmDeleteColumnId, setConfirmDeleteColumnId] = useState<string | null>(null);
   const [creatingColumnId, setCreatingColumnId] = useState<string | null>(null);
   const [newTaskSummary, setNewTaskSummary] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const { token } = useAuth();
   const { toast } = useToast();
   const handleDeleteItem = async () => {
@@ -114,22 +164,6 @@ export default function BoardPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const DroppableColumn = ({ columnId, children }) => {
-    const { setNodeRef, isOver } = useDroppable({
-      id: columnId,
-    });
-    return (
-      <div
-        ref={setNodeRef}
-        className={`
-  flex flex-col space-y-3 flex-1 min-h-[400px] h-full rounded-lg p-2
-  ${isOver ? "bg-primary/10" : "bg-muted/10"}
-`}
-      >
-        {children}
-      </div>
-    );
-  };
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
@@ -164,35 +198,6 @@ export default function BoardPage() {
   };
 
 
-  const DraggableItem = ({ item, children }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({
-      id: item.id,
-    });
-
-    const style = {
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-      >
-        {typeof children === "function"
-          ? children({ listeners })
-          : children}
-      </div>
-    );
-  }
   const moveColumnLeft = async (column) => {
     try {
       const client = getGraphQLClient(token || undefined);
@@ -400,6 +405,43 @@ export default function BoardPage() {
   useEffect(() => {
     fetchData();
   }, [spaceKey, token]);
+
+  const handleCreateWorkItem = async (columnId: string) => {
+    if (!newTaskSummary.trim()) return;
+
+    try {
+      setIsCreating(true);
+      const client = getGraphQLClient(token || undefined);
+
+      await client.request(CREATE_WORK_ITEM, {
+        input: {
+          summary: newTaskSummary.trim(),
+          spaceId: space.id,
+          boardColumnId: columnId,
+          type: "TASK",
+          priority: "MEDIUM"
+        }
+      });
+
+      setNewTaskSummary("");
+      setCreatingColumnId(null);
+      fetchData();
+
+      toast({
+        title: "Task created",
+        description: "Your new task has been added to the board",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
   const saveSummary = async (item: WorkItem) => {
     if (editingSummary.trim() === item.summary) {
       setEditingItemId(null);
@@ -648,12 +690,28 @@ export default function BoardPage() {
                               onChange={(e) => {
                                 setNewTaskSummary(e.target.value);
                               }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleCreateWorkItem(column.id);
+                                }
+                                if (e.key === "Escape") {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }
+                              }}
                               placeholder="What needs to be done?"
                               className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
                             />
 
                             <div className="flex items-center gap-2">
-                              <Button size="sm">✔</Button>
+                              <Button
+                                size="sm"
+                                disabled={isCreating}
+                                onClick={() => handleCreateWorkItem(column.id)}
+                              >
+                                {isCreating ? "..." : "✔"}
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -895,16 +953,31 @@ export default function BoardPage() {
                             <textarea
                               value={newTaskSummary}
                               autoFocus
-
                               onChange={(e) => {
                                 setNewTaskSummary(e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleCreateWorkItem(column.id);
+                                }
+                                if (e.key === "Escape") {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }
                               }}
                               placeholder="What needs to be done?"
                               className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
                             />
 
                             <div className="flex items-center gap-2">
-                              <Button size="sm">✔</Button>
+                              <Button
+                                size="sm"
+                                disabled={isCreating}
+                                onClick={() => handleCreateWorkItem(column.id)}
+                              >
+                                {isCreating ? "..." : "✔"}
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
