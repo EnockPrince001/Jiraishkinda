@@ -12,13 +12,13 @@ type User = {
 };
 
 export default function ProfileSettingsPage() {
-  const { user, setUser, token } = useAuth(); 
-  const { toast } = useToast(); 
-  
+  const { user, setUser, token } = useAuth();
+  const { toast } = useToast();
+
   const safeUser: User = user ?? { name: "", email: "", jobTitle: "" };
 
   const [name, setName] = useState(safeUser.name);
-  const [email] = useState(safeUser.email); 
+  const [email] = useState(safeUser.email);
   const [jobTitle, setJobTitle] = useState(safeUser.jobTitle || "");
   const [loading, setLoading] = useState(false);
 
@@ -41,11 +41,11 @@ export default function ProfileSettingsPage() {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/user/profile", {
+      const response = await fetch(`${import.meta.env.VITE_IDENTITY_API_URL}/api/user/profile`, {
         method: "PUT",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({ name, jobTitle }),
       });
@@ -56,27 +56,23 @@ export default function ProfileSettingsPage() {
       }
 
       const updatedData = await response.json();
-      
-      // 1. Prepare the updated user object
-      const newUserState = {
+
+      const newUserState: User = {
         ...user,
         name: updatedData.name,
-        jobTitle: updatedData.jobTitle
-      } as User;
+        email: updatedData.email,
+        jobTitle: updatedData.jobTitle,
+      };
 
-      // 2. Update global context (for current session UI)
       if (setUser) {
         setUser(newUserState);
       }
 
-      // 3. Update localStorage (to persist changes after refresh/navigation)
-      // Note: Use the same key your AuthContext uses (usually 'user' or 'auth_user')
       localStorage.setItem("auth_user", JSON.stringify(newUserState));
 
       toast({
-        title: "Success",
-        description: "Your profile has been updated successfully.",
-        variant: "default", 
+        title: "Profile updated",
+        description: "Your changes have been saved successfully.",
       });
 
     } catch (err: any) {
