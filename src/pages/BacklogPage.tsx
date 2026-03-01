@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Play, CheckCircle2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT,UPDATE_WORK_ITEM_DETAILS,} from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -108,17 +108,17 @@ export default function BacklogPage() {
       setEditingItemId(null);
       return;
     }
-  
+
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(UPDATE_WORK_ITEM_DETAILS, {
         itemId: item.id,
         input: {
           summary: editingSummary.trim(),
         },
       });
-  
+
       await fetchData(); // reload from backend
     } catch (error) {
       console.error("Failed to update summary", error);
@@ -131,7 +131,7 @@ export default function BacklogPage() {
       setEditingItemId(null);
     }
   };
- 
+
   const handleStartSprint = async (sprintId: string) => {
     try {
       const client = getGraphQLClient(token || undefined);
@@ -299,40 +299,41 @@ export default function BacklogPage() {
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                             {editingItemId === item.id ? (
-          
-            <input
-              value={editingSummary}
-              autoFocus
-              onChange={(e) => setEditingSummary(e.target.value)}
-              onBlur={() => {
-                // ❌ DO NOT SAVE HERE
-                setEditingItemId(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  saveSummary(item); // ✅ SAVE ONLY HERE
-                }
-                if (e.key === "Escape") {
-                  setEditingItemId(null);
-                }
-              }}
-              className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
-            />
-          ) : (
-            <span
-              className="text-sm cursor-text hover:bg-muted px-1 rounded"
-              onClick={(e) => {
-                e.stopPropagation(); // 🚨 IMPORTANT
-                setEditingItemId(item.id);
-                setEditingSummary(item.summary);
-              }}
-            >
-              {item.summary}
-            </span>
-          )}
-          
-</div>             
+
+                              <input
+                                value={editingSummary}
+                                autoFocus
+                                onChange={(e) => setEditingSummary(e.target.value)}
+                                onBlur={() => {
+                                  // ❌ DO NOT SAVE HERE
+                                  setEditingItemId(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    saveSummary(item); // ✅ SAVE ONLY HERE
+                                  }
+                                  if (e.key === "Escape") {
+                                    setEditingItemId(null);
+                                  }
+                                }}
+                                className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
+                              />
+                            ) : (
+                              <span
+                                className="text-sm cursor-text hover:bg-muted px-1 rounded"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // 🚨 IMPORTANT
+                                  setEditingItemId(item.id);
+                                  setEditingSummary(item.summary);
+                                }}
+                              >
+                                {item.flagged && <span className="text-red-500 mr-1">🚩</span>}
+                                {item.summary}
+                              </span>
+                            )}
+
+                          </div>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Badge variant="outline">{item.priority}</Badge>
                             {item.storyPoints && (
@@ -389,40 +390,41 @@ export default function BacklogPage() {
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                         {editingItemId === item.id ? (
-      <input
-        value={editingSummary}
-        autoFocus
-        onChange={(e) => setEditingSummary(e.target.value)}
-        onBlur={() => {
-          // ❌ DO NOT SAVE HERE
-          setEditingItemId(null);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            saveSummary(item); // ✅ SAVE ONLY HERE
-          }
-          if (e.key === "Escape") {
-            setEditingItemId(null);
-          }
-        }}
-        className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
-      />
-    ) : (
-      <span
-        className="text-sm cursor-text hover:bg-muted px-1 rounded"
-        onClick={(e) => {
-          e.stopPropagation(); // 🚨 IMPORTANT
-          setEditingItemId(item.id);
-          setEditingSummary(item.summary);
-        }}
-      >
-        {item.summary}
-      </span>
-    )}
-    
-  </div>
-                      
+                          <input
+                            value={editingSummary}
+                            autoFocus
+                            onChange={(e) => setEditingSummary(e.target.value)}
+                            onBlur={() => {
+                              // ❌ DO NOT SAVE HERE
+                              setEditingItemId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                saveSummary(item); // ✅ SAVE ONLY HERE
+                              }
+                              if (e.key === "Escape") {
+                                setEditingItemId(null);
+                              }
+                            }}
+                            className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
+                          />
+                        ) : (
+                          <span
+                            className="text-sm cursor-text hover:bg-muted px-1 rounded"
+                            onClick={(e) => {
+                              e.stopPropagation(); // 🚨 IMPORTANT
+                              setEditingItemId(item.id);
+                              setEditingSummary(item.summary);
+                            }}
+                          >
+                            {item.flagged && <span className="text-red-500 mr-1">🚩</span>}
+                            {item.summary}
+                          </span>
+                        )}
+
+                      </div>
+
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <Badge variant="outline">{item.priority}</Badge>
                         {item.storyPoints && (

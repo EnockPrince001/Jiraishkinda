@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./Sidebar";
 import { TopNavBar } from "./TopNavBar";
@@ -96,9 +96,9 @@ export function MainLayout({
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
       <div className="h-screen w-full overflow-hidden">
-            <ResizablePanelGroup
-            direction="horizontal"
-           className="h-full"
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full"
           onLayout={(sizes) => {
             if (sizes[0] > 0) {
               localStorage.setItem(storageKey, sizes[0].toString());
@@ -135,7 +135,7 @@ export function MainLayout({
               />
 
               <WorkAreaNav spaceName={spaceName} spaceType={spaceType} />
-              <main className="flex-1 overflow-hidden bg-background relative">
+              <main className="flex-1 overflow-y-auto bg-background relative">
                 {children}
               </main>
             </div>

@@ -133,26 +133,26 @@ export default function BoardPage() {
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
-  
+
     if (!over) return;
-  
+
     const itemId = active.id;
     const newColumnId = over.id;
-  
+
     const item = workItems.find(i => i.id === itemId);
     if (!item || item.boardColumnId === newColumnId) return;
-  
+
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(UPDATE_WORK_ITEM, {
         itemId,
         boardColumnId: newColumnId,
       });
-  
+
       // ✅ Re-fetch from backend to get CORRECT order
       await fetchData();
-  
+
     } catch (error) {
       console.error(error);
       toast({
@@ -262,11 +262,11 @@ export default function BoardPage() {
   const moveItemUp = async (item) => {
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(MOVE_WORK_ITEM_UP, {
         workItemId: item.id,
       });
-  
+
       fetchData(); // ✅ reload from server
     } catch (error) {
       console.error(error);
@@ -279,23 +279,23 @@ export default function BoardPage() {
   };
 
   const moveItemToTop = async (item) => {
-  try {
-    const client = getGraphQLClient(token || undefined);
+    try {
+      const client = getGraphQLClient(token || undefined);
 
-    await client.request(MOVE_WORK_ITEM_TO_TOP, {
-      workItemId: item.id,
-    });
+      await client.request(MOVE_WORK_ITEM_TO_TOP, {
+        workItemId: item.id,
+      });
 
-    fetchData(); // ✅ reload from server
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Failed to move item to top",
-      variant: "destructive",
-    });
-  }
-};
+      fetchData(); // ✅ reload from server
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to move item to top",
+        variant: "destructive",
+      });
+    }
+  };
 
   const changeStatus = async (item, columnId) => {
     try {
@@ -320,12 +320,12 @@ export default function BoardPage() {
   const toggleFlag = async (item) => {
     try {
       const client = getGraphQLClient(token || undefined);
-  
+
       await client.request(TOGGLE_WORK_ITEM_FLAG, {
         itemId: item.id,
         flagged: !item.flagged, // 🔁 toggle
       });
-  
+
       fetchData(); // refresh board
     } catch (error) {
       console.error(error);
@@ -468,7 +468,7 @@ export default function BoardPage() {
 
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
-      <div className="p-6 h-full flex flex-col overflow-hidden">
+      <div className="p-6 h-full flex flex-col overflow-auto">
         {/* Show Active Sprint Banner for Scrum */}
         {space.type === 'SCRUM' && (
           <div className="mb-4 flex items-center justify-between">
@@ -676,219 +676,219 @@ export default function BoardPage() {
                             + Create
                           </button>
                         )}
-               {[...columnItems]
-  .sort((a, b) => a.order - b.order)
-  .map((item) => (
-                          <DraggableItem key={item.id} item={item}>
-                            {({ listeners }) => (
-                              <Card
+                        {[...columnItems]
+                          .sort((a, b) => a.order - b.order)
+                          .map((item) => (
+                            <DraggableItem key={item.id} item={item}>
+                              {({ listeners }) => (
+                                <Card
 
-                                className="group hover:shadow-md transition-all relative"
-                              >
-                                <CardContent className="p-3 space-y-2">
-                                  <div
-                                    className="flex justify-between items-start gap-2 cursor-pointer"
-                                    onClick={() => setSelectedWorkItemId(item.id)}
-                                  >
-
-                                    {/* DRAG HANDLE */}
+                                  className="group hover:shadow-md transition-all relative"
+                                >
+                                  <CardContent className="p-3 space-y-2">
                                     <div
-                                      {...listeners}
-
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="cursor-grab text-muted-foreground hover:text-foreground select-none pt-1"
-                                      title="Drag"
+                                      className="flex justify-between items-start gap-2 cursor-pointer"
+                                      onClick={() => setSelectedWorkItemId(item.id)}
                                     >
-                                      ⠿
-                                    </div>
-                                    {/* LEFT: SUMMARY */}
-                                    <div className="flex-1 relative">
-                                      {editingItemId === item.id ? (
-                                        <textarea
-                                          value={editingSummary}
-                                          autoFocus
-                                          rows={1}
-                                          onChange={(e) => {
-                                            setEditingSummary(e.target.value);
-                                            e.target.style.height = "auto";
-                                            e.target.style.height = `${e.target.scrollHeight}px`;
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter" && !e.shiftKey) {
-                                              e.preventDefault();
-                                              saveSummary(item);
-                                            }
-                                            if (e.key === "Escape") {
-                                              setEditingItemId(null);
-                                            }
-                                          }}
-                                          onBlur={() => saveSummary(item)}
-                                          className="w-full resize-none text-sm border rounded px-2 py-1 bg-yellow-50 focus:outline-none"
-                                        />
-                                      ) : (
-                                        <div
-                                          className="group relative cursor-text pr-6"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingItemId(item.id);
-                                            setEditingSummary(item.summary);
-                                          }}
-                                        >
 
-<p className="text-sm font-medium whitespace-pre-wrap break-words flex items-start gap-1">
-  {item.flagged && (
-    <span title="Flagged" className="text-red-500">
-      🚩
-    </span>
-  )}
-  <span>{item.summary}</span>
-</p>
-                                          <Pencil
-                                            size={14}
-                                            className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
+                                      {/* DRAG HANDLE */}
+                                      <div
+                                        {...listeners}
 
-                                    {/* RIGHT: MENU */}
-                                    <DropdownMenu modal={false}>
-                                      <DropdownMenuTrigger asChild>
-                                        <button
-                                          onPointerDown={(e) => {
-                                          }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                          }}
-                                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground px-1"
-                                        >
-                                          ⋯
-                                        </button>
-                                      </DropdownMenuTrigger>
-
-                                      <DropdownMenuContent
-                                        align="end"
-                                        sideOffset={4}
-                                        className="w-56 z-[9999]"
                                         onClick={(e) => e.stopPropagation()}
+                                        className="cursor-grab text-muted-foreground hover:text-foreground select-none pt-1"
+                                        title="Drag"
                                       >
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            setSelectedWorkItemId(item.id)
-                                          }
+                                        ⠿
+                                      </div>
+                                      {/* LEFT: SUMMARY */}
+                                      <div className="flex-1 relative">
+                                        {editingItemId === item.id ? (
+                                          <textarea
+                                            value={editingSummary}
+                                            autoFocus
+                                            rows={1}
+                                            onChange={(e) => {
+                                              setEditingSummary(e.target.value);
+                                              e.target.style.height = "auto";
+                                              e.target.style.height = `${e.target.scrollHeight}px`;
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                saveSummary(item);
+                                              }
+                                              if (e.key === "Escape") {
+                                                setEditingItemId(null);
+                                              }
+                                            }}
+                                            onBlur={() => saveSummary(item)}
+                                            className="w-full resize-none text-sm border rounded px-2 py-1 bg-yellow-50 focus:outline-none"
+                                          />
+                                        ) : (
+                                          <div
+                                            className="group relative cursor-text pr-6"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingItemId(item.id);
+                                              setEditingSummary(item.summary);
+                                            }}
+                                          >
+
+                                            <p className="text-sm font-medium whitespace-pre-wrap break-words flex items-start gap-1">
+                                              {item.flagged && (
+                                                <span title="Flagged" className="text-red-500">
+                                                  🚩
+                                                </span>
+                                              )}
+                                              <span>{item.summary}</span>
+                                            </p>
+                                            <Pencil
+                                              size={14}
+                                              className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* RIGHT: MENU */}
+                                      <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                          <button
+                                            onPointerDown={(e) => {
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground px-1"
+                                          >
+                                            ⋯
+                                          </button>
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent
+                                          align="end"
+                                          sideOffset={4}
+                                          className="w-56 z-[9999]"
+                                          onClick={(e) => e.stopPropagation()}
                                         >
-                                          Open
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSeparator />
-
-                                        <DropdownMenuSub>
-                                          <DropdownMenuSubTrigger>
-                                            Move work item
-                                          </DropdownMenuSubTrigger>
-                                          <DropdownMenuSubContent className="w-44">
-                                            <DropdownMenuItem
-                                              onClick={() => moveItemToTop(item)}
-                                            >
-                                              To the top
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              onClick={() => moveItemUp(item)}
-                                            >
-                                              Up
-                                            </DropdownMenuItem>
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-
-                                        <DropdownMenuSub>
-                                          <DropdownMenuSubTrigger>
-                                            Change status
-                                          </DropdownMenuSubTrigger>
-                                          <DropdownMenuSubContent className="w-44">
-                                            {space.boardColumns
-                                              ?.sort((a, b) => a.order - b.order)
-                                              .map((col) => (
-                                                <DropdownMenuItem
-                                                  key={col.id}
-                                                  onClick={() =>
-                                                    changeStatus(item, col.id)
-                                                  }
-                                                >
-                                                  {col.name}
-                                                </DropdownMenuItem>
-                                              ))}
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-
-                                        <DropdownMenuSeparator />
-
-                                        <DropdownMenuItem
-                                          onClick={() => toggleFlag(item)}
-                                        >
-                                           {item.flagged ? "Remove flag" : "Add flag"}
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuItem
-                                          onClick={() => openLabelDialog(item)}
-                                        >
-                                          Add label
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSeparator />
-
-                                        <DropdownMenuItem
-                                          className="text-destructive"
-                                          onClick={() => setDeletingItem(item)}
-                                        >
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-
-                                  {/* FOOTER */}
-                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono">{item.key}</span>
-                                      <StoryPoints
-                                        value={item.storyPoints}
-                                        onSave={async (newValue) => {
-                                          const client = getGraphQLClient(
-                                            token || undefined
-                                          );
-                                          await client.request(
-                                            UPDATE_WORK_ITEM_DETAILS,
-                                            {
-                                              itemId: item.id,
-                                              input: { storyPoints: newValue },
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              setSelectedWorkItemId(item.id)
                                             }
-                                          );
-                                          fetchData();
-                                        }}
-                                      />
+                                          >
+                                            Open
+                                          </DropdownMenuItem>
+
+                                          <DropdownMenuSeparator />
+
+                                          <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>
+                                              Move work item
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent className="w-44">
+                                              <DropdownMenuItem
+                                                onClick={() => moveItemToTop(item)}
+                                              >
+                                                To the top
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onClick={() => moveItemUp(item)}
+                                              >
+                                                Up
+                                              </DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                          </DropdownMenuSub>
+
+                                          <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>
+                                              Change status
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent className="w-44">
+                                              {space.boardColumns
+                                                ?.sort((a, b) => a.order - b.order)
+                                                .map((col) => (
+                                                  <DropdownMenuItem
+                                                    key={col.id}
+                                                    onClick={() =>
+                                                      changeStatus(item, col.id)
+                                                    }
+                                                  >
+                                                    {col.name}
+                                                  </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuSubContent>
+                                          </DropdownMenuSub>
+
+                                          <DropdownMenuSeparator />
+
+                                          <DropdownMenuItem
+                                            onClick={() => toggleFlag(item)}
+                                          >
+                                            {item.flagged ? "Remove flag" : "Add flag"}
+                                          </DropdownMenuItem>
+
+                                          <DropdownMenuItem
+                                            onClick={() => openLabelDialog(item)}
+                                          >
+                                            Add label
+                                          </DropdownMenuItem>
+
+                                          <DropdownMenuSeparator />
+
+                                          <DropdownMenuItem
+                                            className="text-destructive"
+                                            onClick={() => setDeletingItem(item)}
+                                          >
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                      {item.assignee && (
-                                        <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                                          {item.assignee.userName
-                                            .charAt(0)
-                                            .toUpperCase()}
-                                        </span>
-                                      )}
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] px-1 py-0 h-5"
-                                      >
-                                        {item.priority}
-                                      </Badge>
+                                    {/* FOOTER */}
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono">{item.key}</span>
+                                        <StoryPoints
+                                          value={item.storyPoints}
+                                          onSave={async (newValue) => {
+                                            const client = getGraphQLClient(
+                                              token || undefined
+                                            );
+                                            await client.request(
+                                              UPDATE_WORK_ITEM_DETAILS,
+                                              {
+                                                itemId: item.id,
+                                                input: { storyPoints: newValue },
+                                              }
+                                            );
+                                            fetchData();
+                                          }}
+                                        />
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        {item.assignee && (
+                                          <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                            {item.assignee.userName
+                                              .charAt(0)
+                                              .toUpperCase()}
+                                          </span>
+                                        )}
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] px-1 py-0 h-5"
+                                        >
+                                          {item.priority}
+                                        </Badge>
+                                      </div>
                                     </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </DraggableItem>
-                        ))}
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </DraggableItem>
+                          ))}
                         {/* INLINE CREATE INPUT (BOTTOM) */}
                         {creatingColumnId === column.id && columnItems.length > 0 && (
                           <div className="bg-background border rounded-md p-2 space-y-2">
