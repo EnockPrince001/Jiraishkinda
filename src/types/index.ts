@@ -3,6 +3,7 @@ export type WorkItemPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type SprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED';
 export type SpaceType = 'KANBAN' | 'SCRUM';
 export type SpaceRole = 'ADMINISTRATOR' | 'MEMBER' | 'VIEWER';
+export type WorkItemType = 'TASK' | 'STORY' | 'BUG' | 'EPIC';
 
 // --- 2. Helper Types ---
 export interface UserStub {
@@ -31,6 +32,7 @@ export interface WorkItem {
   key: string;
   summary: string;
   description?: string;
+  type: WorkItemType;
   boardColumnId: string; // Replaces status
   order: number;
   priority: WorkItemPriority;
