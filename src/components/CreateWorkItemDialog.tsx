@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import {
   Dialog,
@@ -21,14 +21,22 @@ import {
 } from "@/components/ui/select";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { CREATE_WORK_ITEM } from "@/lib/queries";
+import { CREATE_WORK_ITEM, GET_BOARD_COLUMNS_BY_SPACE_ID } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 
 const MAX_SUMMARY_LENGTH = 150;
 
+interface BoardColumn {
+  id: string;
+  name: string;
+  order: number;
+  isSystem: boolean;
+}
+
 interface CreateWorkItemDialogProps {
   spaceId: string;          // ✅ REQUIRED
   sprintId?: string;
+  initialBoardColumnId?: string; // Optional: Pre-select a specific column
   onSuccess?: () => void;
   trigger?: React.ReactNode;
 }
@@ -36,6 +44,7 @@ interface CreateWorkItemDialogProps {
 export function CreateWorkItemDialog({
   spaceId,
   sprintId,
+  initialBoardColumnId,
   onSuccess,
   trigger,
 }: CreateWorkItemDialogProps) {
@@ -43,10 +52,39 @@ export function CreateWorkItemDialog({
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [type, setType] = useState("TASK");
+  const [boardColumnId, setBoardColumnId] = useState<string>(initialBoardColumnId || "");
+  const [boardColumns, setBoardColumns] = useState<BoardColumn[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchingCols, setFetchingCols] = useState(false);
 
   const { token } = useAuth();
   const { toast } = useToast();
+
+  const fetchBoardColumns = async () => {
+    if (!spaceId) return;
+    try {
+      setFetchingCols(true);
+      const client = getGraphQLClient(token || undefined);
+      const data: any = await client.request(GET_BOARD_COLUMNS_BY_SPACE_ID, { spaceId });
+
+      const columns = data.boardColumnsBySpaceId || [];
+      setBoardColumns(columns);
+
+      if (columns.length > 0 && !boardColumnId && !initialBoardColumnId) {
+        setBoardColumnId(columns[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch board columns:", error);
+    } finally {
+      setFetchingCols(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchBoardColumns();
+    }
+  }, [open, spaceId, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,10 +107,11 @@ export function CreateWorkItemDialog({
 
       await client.request(CREATE_WORK_ITEM, {
         input: {
-          spaceId,               // ✅ FIX: ALWAYS INCLUDED
+          spaceId,
           summary,
           priority,
           type,
+          ...(boardColumnId ? { boardColumnId } : {}),
           ...(sprintId ? { sprintId } : {}),
         },
       });
@@ -85,6 +124,7 @@ export function CreateWorkItemDialog({
       setSummary("");
       setPriority("MEDIUM");
       setType("TASK");
+      setBoardColumnId(initialBoardColumnId || "");
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
@@ -186,7 +226,27 @@ export function CreateWorkItemDialog({
               </Select>
             </div>
 
-            {/* Status intentionally removed – auto-assigned */}
+            {/* Status (Board Column) */}
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={boardColumnId}
+                onValueChange={setBoardColumnId}
+                disabled={fetchingCols || boardColumns.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={fetchingCols ? "Loading..." : "Select status"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {boardColumns.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      {col.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
           </div>
 
           <DialogFooter>
