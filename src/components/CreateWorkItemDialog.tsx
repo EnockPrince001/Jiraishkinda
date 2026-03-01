@@ -42,6 +42,7 @@ export function CreateWorkItemDialog({
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
+  const [type, setType] = useState("TASK");
   const [loading, setLoading] = useState(false);
 
   const { token } = useAuth();
@@ -71,6 +72,7 @@ export function CreateWorkItemDialog({
           spaceId,               // ✅ FIX: ALWAYS INCLUDED
           summary,
           priority,
+          type,
           ...(sprintId ? { sprintId } : {}),
         },
       });
@@ -82,6 +84,7 @@ export function CreateWorkItemDialog({
 
       setSummary("");
       setPriority("MEDIUM");
+      setType("TASK");
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
@@ -121,11 +124,10 @@ export function CreateWorkItemDialog({
               <div className="flex items-center justify-between">
                 <Label htmlFor="summary">Summary *</Label>
                 <span
-                  className={`text-xs ${
-                    summary.length > MAX_SUMMARY_LENGTH
-                      ? "text-destructive font-medium"
-                      : "text-muted-foreground"
-                  }`}
+                  className={`text-xs ${summary.length > MAX_SUMMARY_LENGTH
+                    ? "text-destructive font-medium"
+                    : "text-muted-foreground"
+                    }`}
                 >
                   {summary.length}/{MAX_SUMMARY_LENGTH}
                 </span>
@@ -150,6 +152,22 @@ export function CreateWorkItemDialog({
                   Summary is too long
                 </p>
               )}
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label htmlFor="type">Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TASK">Task</SelectItem>
+                  <SelectItem value="STORY">Story</SelectItem>
+                  <SelectItem value="BUG">Bug</SelectItem>
+                  <SelectItem value="EPIC">Epic</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Priority */}
