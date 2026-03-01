@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, TOGGLE_WORK_ITEM_FLAG, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, TOGGLE_WORK_ITEM_FLAG, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM, CREATE_WORK_ITEM } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil } from "lucide-react";
 import { useDraggable, } from "@dnd-kit/core";
