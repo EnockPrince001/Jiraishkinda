@@ -52,17 +52,6 @@ export const GET_SPACE_DATA = gql`
   }
 `;
 
-export const GET_BOARD_COLUMNS_BY_SPACE_ID = gql`
-  query GetBoardColumnsBySpaceId($spaceId: UUID!) {
-    boardColumnsBySpaceId(spaceId: $spaceId) {
-      id
-      name
-      order
-      isSystem
-    }
-  }
-`;
-
 export const GET_WORK_ITEMS = gql`
   query GetWorkItems($spaceKey: String!) {
     workItemsForSpace(spaceKey: $spaceKey) {

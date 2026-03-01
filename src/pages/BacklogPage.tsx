@@ -9,7 +9,7 @@ import { WorkItemOptionsMenu } from "@/components/WorkItemOptionsMenu";
 import { AssigneeSelect } from "@/components/AssigneeSelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Play, CheckCircle2, ChevronRight, Pencil, Trash2, Plus } from "lucide-react";
+import { Play, CheckCircle2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
 import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, } from "@/lib/queries";
@@ -356,21 +356,6 @@ export default function BacklogPage() {
                       </div>
                     ))
                   )}
-
-                  {/* Create Issue in Sprint Button */}
-                  <div className="mt-2 text-center">
-                    <CreateWorkItemDialog
-                      spaceId={space.id}
-                      sprintId={sprint.id}
-                      onSuccess={fetchData}
-                      trigger={
-                        <Button variant="ghost" className="w-full text-sm font-normal justify-start">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create issue
-                        </Button>
-                      }
-                    />
-                  </div>
                 </div>
               </CardContent>
             </Card>

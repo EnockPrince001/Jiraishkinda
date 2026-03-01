@@ -14,9 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { StoryPoints } from "@/components/StoryPoints";
 import { Card, CardContent } from "@/components/ui/card";
 import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
-import { CreateWorkItemDialog } from "@/components/CreateWorkItemDialog";
-import { AddColumnForm } from "@/components/AddColumnForm";
-import { AssigneeSelect } from "@/components/AssigneeSelect";
 import { Space, WorkItem } from "@/types";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
@@ -126,6 +123,9 @@ export default function BoardPage() {
   const [hoveredColumnId, setHoveredColumnId] = useState<string | null>(null);
   const [openColumnMenuId, setOpenColumnMenuId] = useState<string | null>(null);
   const [confirmDeleteColumnId, setConfirmDeleteColumnId] = useState<string | null>(null);
+  const [creatingColumnId, setCreatingColumnId] = useState<string | null>(null);
+  const [newTaskSummary, setNewTaskSummary] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const { token } = useAuth();
   const { toast } = useToast();
   const handleDeleteItem = async () => {
@@ -947,21 +947,58 @@ export default function BoardPage() {
                               )}
                             </DraggableItem>
                           ))}
+                        {/* INLINE CREATE INPUT (BOTTOM) */}
+                        {creatingColumnId === column.id && columnItems.length > 0 && (
+                          <div className="bg-background border rounded-md p-2 space-y-2">
+                            <textarea
+                              value={newTaskSummary}
+                              autoFocus
+                              onChange={(e) => {
+                                setNewTaskSummary(e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleCreateWorkItem(column.id);
+                                }
+                                if (e.key === "Escape") {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }
+                              }}
+                              placeholder="What needs to be done?"
+                              className="w-full resize-none text-sm border rounded px-2 py-1 focus:outline-none"
+                            />
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                disabled={isCreating}
+                                onClick={() => handleCreateWorkItem(column.id)}
+                              >
+                                {isCreating ? "..." : "✔"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setCreatingColumnId(null);
+                                  setNewTaskSummary("");
+                                }}
+                              >
+                                ✖
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         {/* + Create (BOTTOM when items exist) */}
                         {hoveredColumnId === column.id && columnItems.length > 0 && (
-                          <CreateWorkItemDialog
-                            spaceId={space.id}
-                            sprintId={activeSprint?.id}
-                            initialBoardColumnId={column.id}
-                            onSuccess={fetchData}
-                            trigger={
-                              <button
-                                className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
-                              >
-                                + Create
-                              </button>
-                            }
-                          />
+                          <button
+                            onClick={() => setCreatingColumnId(column.id)}
+                            className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-muted rounded-md"
+                          >
+                            + Create
+                          </button>
                         )}
                       </DroppableColumn>
                     </div>
