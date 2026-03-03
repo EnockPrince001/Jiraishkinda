@@ -95,7 +95,7 @@ export default function ListPage() {
 
   if (loading) {
     return (
-      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+      <MainLayout spaceName={space?.name} spaceType={space?.type} spaceId={space?.id}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-lg">Loading...</div>
         </div>
@@ -114,7 +114,7 @@ export default function ListPage() {
   }
 
   return (
-    <MainLayout spaceName={space.name} spaceType={space.type}>
+    <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

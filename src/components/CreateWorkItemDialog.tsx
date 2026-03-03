@@ -69,7 +69,7 @@ export function CreateWorkItemDialog({
 
       await client.request(CREATE_WORK_ITEM, {
         input: {
-          spaceId,               // ✅ FIX: ALWAYS INCLUDED
+          spaceId,               
           summary,
           priority,
           type,

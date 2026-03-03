@@ -1,4 +1,4 @@
-const IDENTITY_API_URL = 'https://localhost:7275';
+const IDENTITY_API_URL = 'http://localhost:5080';
 export interface LoginRequest {
   email: string;
   password: string;

@@ -74,7 +74,7 @@ export default function TimelinePage() {
 
   if (loading) {
     return (
-      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+      <MainLayout spaceName={space?.name} spaceType={space?.type} spaceId={space?.id}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-lg">Loading...</div>
         </div>
@@ -107,7 +107,7 @@ export default function TimelinePage() {
   };
 
   return (
-    <MainLayout spaceName={space.name} spaceType={space.type}>
+    <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Timeline</h1>

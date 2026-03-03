@@ -362,7 +362,7 @@ export default function BoardPage() {
         client.request(GET_WORK_ITEMS, { spaceKey }),
       ]);
 
-      setSpace(spaceData.space?.[0] || null);
+      setSpace(spaceData.space || null);
       setWorkItems(workItemsData.workItemsForSpace || []);
     } catch (error: any) {
       toast({
@@ -472,7 +472,7 @@ export default function BoardPage() {
   };
   if (loading) {
     return (
-      <MainLayout spaceName={space?.name} spaceType={space?.type}>
+      <MainLayout spaceName={space?.name} spaceType={space?.type} spaceId={space?.id}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-lg">Loading...</div>
         </div>
@@ -509,7 +509,7 @@ export default function BoardPage() {
   }
 
   return (
-    <MainLayout spaceName={space.name} spaceType={space.type}>
+    <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 h-full flex flex-col overflow-auto">
         {/* Show Active Sprint Banner for Scrum */}
         {space.type === 'SCRUM' && (
