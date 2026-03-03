@@ -362,7 +362,7 @@ export default function BoardPage() {
         client.request(GET_WORK_ITEMS, { spaceKey }),
       ]);
 
-      setSpace(spaceData.space || null);
+      setSpace(spaceData.space?.[0] || null);
       setWorkItems(workItemsData.workItemsForSpace || []);
     } catch (error: any) {
       toast({
