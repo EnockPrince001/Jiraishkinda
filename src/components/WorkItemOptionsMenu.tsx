@@ -40,17 +40,28 @@ interface Sprint {
   name: string;
 }
 
+interface BoardColumn {
+  id: string;
+  name: string;
+  order: number;
+}
+
 interface WorkItemOptionsMenuProps {
   item: WorkItem;
   sprints: Sprint[];
   allItems: WorkItem[];
+  // Allows null since GraphQL returns null (not undefined) for missing relations
+  boardColumns?: BoardColumn[] | null;
   onSuccess?: () => void;
 }
 
-export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: WorkItemOptionsMenuProps) {
+export function WorkItemOptionsMenu({ item, sprints, allItems, boardColumns, onSuccess }: WorkItemOptionsMenuProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { token } = useAuth();
   const { toast } = useToast();
+
+  // ?? catches both null and undefined — unlike || [] or default params which miss null
+  const columns = boardColumns ?? [];
 
   const handleDelete = async () => {
     try {
@@ -67,6 +78,8 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
         description: error.message || "Failed to delete work item",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -97,7 +110,7 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
       await client.request(MOVE_WORK_ITEM, {
         itemId: item.id,
         sprintId: targetSprintId || null,
-        moveToBacklog: !targetSprintId, // true if moving to backlog
+        moveToBacklog: !targetSprintId,
       });
       toast({
         title: "Success",
@@ -113,12 +126,12 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
     }
   };
 
-  const handleChangeStatus = async (newStatus: string) => {
+  const handleChangeStatus = async (boardColumnId: string) => {
     try {
       const client = getGraphQLClient(token || undefined);
       await client.request(UPDATE_WORK_ITEM, {
         itemId: item.id,
-        newStatus,
+        boardColumnId,
       });
       toast({
         title: "Success",
@@ -132,26 +145,6 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
         variant: "destructive",
       });
     }
-  };
-
-  const getCurrentSprintItems = () => {
-    return allItems.filter(i => i.sprintId === item.sprintId);
-  };
-
-  const getItemIndex = () => {
-    const currentItems = getCurrentSprintItems();
-    return currentItems.findIndex(i => i.id === item.id);
-  };
-
-  const handleMovePosition = async (direction: 'up' | 'down' | 'top' | 'bottom') => {
-    const currentItems = getCurrentSprintItems();
-    const currentIndex = getItemIndex();
-
-    // This is a simplified version - in production you'd need a proper ordering field
-    toast({
-      title: "Info",
-      description: "Position reordering requires backend support for ordering field",
-    });
   };
 
   return (
@@ -170,19 +163,6 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
               Move Item
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="bg-background">
-              <DropdownMenuItem onClick={() => handleMovePosition('top')}>
-                Move to Top
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleMovePosition('up')}>
-                Move Up
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleMovePosition('down')}>
-                Move Down
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleMovePosition('bottom')}>
-                Move to Bottom
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleMoveTo()}>
                 Move to Backlog
               </DropdownMenuItem>
@@ -200,15 +180,20 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Change Status</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="bg-background">
-              <DropdownMenuItem onClick={() => handleChangeStatus('TO_DO')}>
-                To Do
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleChangeStatus('IN_PROGRESS')}>
-                In Progress
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleChangeStatus('DONE')}>
-                Done
-              </DropdownMenuItem>
+              {columns.length === 0 ? (
+                <DropdownMenuItem disabled>No columns available</DropdownMenuItem>
+              ) : (
+                [...columns]
+                  .sort((a, b) => a.order - b.order)
+                  .map((col) => (
+                    <DropdownMenuItem
+                      key={col.id}
+                      onClick={() => handleChangeStatus(col.id)}
+                    >
+                      {col.name}
+                    </DropdownMenuItem>
+                  ))
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
@@ -241,7 +226,10 @@ export function WorkItemOptionsMenu({ item, sprints, allItems, onSuccess }: Work
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

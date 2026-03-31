@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Play, CheckCircle2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, START_SPRINT, COMPLETE_SPRINT, DELETE_SPRINT, UPDATE_WORK_ITEM_DETAILS } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { BoardColumn } from "@/types"; // Import BoardColumn type
+import { BoardColumn } from "@/types";
 
 interface Space {
   id: string;
@@ -34,7 +34,8 @@ interface Space {
   type: 'SCRUM' | 'KANBAN';
   sprints: Sprint[];
   members: Member[];
-  boardColumns: BoardColumn[]; // <-- ADDED THIS
+  // null because GraphQL returns null (not undefined) for missing relations
+  boardColumns: BoardColumn[] | null;
 }
 
 interface Sprint {
@@ -64,7 +65,7 @@ interface WorkItem {
   sprintId?: string;
   assignee?: { id: string; userName: string };
   flagged: boolean;
-  boardColumnId: string; // Added to match new model
+  boardColumnId: string;
 }
 
 export default function BacklogPage() {
@@ -79,18 +80,16 @@ export default function BacklogPage() {
   const [editingSummary, setEditingSummary] = useState("");
   const { token } = useAuth();
   const { toast } = useToast();
+
   const fetchData = async () => {
     if (!spaceKey) return;
-
     try {
       setLoading(true);
       const client = getGraphQLClient(token || undefined);
-
       const [spaceData, workItemsData]: any = await Promise.all([
         client.request(GET_SPACE_DATA, { spaceKey }),
         client.request(GET_WORK_ITEMS, { spaceKey }),
       ]);
-
       setSpace(spaceData.space?.[0] || null);
       setWorkItems(workItemsData.workItemsForSpace || []);
     } catch (error: any) {
@@ -103,25 +102,20 @@ export default function BacklogPage() {
       setLoading(false);
     }
   };
+
   const saveSummary = async (item: WorkItem) => {
     if (editingSummary.trim() === item.summary) {
       setEditingItemId(null);
       return;
     }
-
     try {
       const client = getGraphQLClient(token || undefined);
-
       await client.request(UPDATE_WORK_ITEM_DETAILS, {
         itemId: item.id,
-        input: {
-          summary: editingSummary.trim(),
-        },
+        input: { summary: editingSummary.trim() },
       });
-
-      await fetchData(); // reload from backend
+      await fetchData();
     } catch (error) {
-      console.error("Failed to update summary", error);
       toast({
         title: "Error",
         description: "Failed to save changes",
@@ -136,17 +130,10 @@ export default function BacklogPage() {
     try {
       const client = getGraphQLClient(token || undefined);
       await client.request(START_SPRINT, { sprintId });
-      toast({
-        title: "Success",
-        description: "Sprint started successfully",
-      });
+      toast({ title: "Success", description: "Sprint started successfully" });
       fetchData();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to start sprint",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to start sprint", variant: "destructive" });
     }
   };
 
@@ -154,17 +141,10 @@ export default function BacklogPage() {
     try {
       const client = getGraphQLClient(token || undefined);
       await client.request(COMPLETE_SPRINT, { sprintId });
-      toast({
-        title: "Success",
-        description: "Sprint completed successfully",
-      });
+      toast({ title: "Success", description: "Sprint completed successfully" });
       fetchData();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to complete sprint",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to complete sprint", variant: "destructive" });
     }
   };
 
@@ -173,18 +153,11 @@ export default function BacklogPage() {
     try {
       const client = getGraphQLClient(token || undefined);
       await client.request(DELETE_SPRINT, { sprintId: deletingSprintId });
-      toast({
-        title: "Success",
-        description: "Sprint deleted successfully",
-      });
+      toast({ title: "Success", description: "Sprint deleted successfully" });
       setDeletingSprintId(null);
       fetchData();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete sprint",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to delete sprint", variant: "destructive" });
     }
   };
 
@@ -214,11 +187,12 @@ export default function BacklogPage() {
 
   const backlogItems = workItems.filter(item => !item.sprintId);
   const allSprints = space?.sprints.filter(s => s.status !== 'COMPLETED') || [];
+  // ?? instead of || so that null from GraphQL is safely coerced to []
+  const boardColumns = space.boardColumns ?? [];
 
   return (
     <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Backlog</h1>
           <div className="flex gap-2">
@@ -241,9 +215,7 @@ export default function BacklogPage() {
                       <CardDescription className="mt-1">
                         Status: <span className="font-medium">{sprint.status}</span>
                         {sprint.startDate && sprint.endDate && (
-                          <>
-                            {" "}({new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()})
-                          </>
+                          <> ({new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()})</>
                         )}
                         {sprint.goal && (
                           <span className="text-sm text-muted-foreground mt-1 block">{sprint.goal}</span>
@@ -254,28 +226,18 @@ export default function BacklogPage() {
                   <div className="flex items-center gap-2">
                     {sprint.status === 'PLANNED' && (
                       <Button size="sm" variant="default" onClick={() => handleStartSprint(sprint.id)}>
-                        <Play className="h-4 w-4 mr-1" />
-                        Start Sprint
+                        <Play className="h-4 w-4 mr-1" /> Start Sprint
                       </Button>
                     )}
                     {sprint.status === 'ACTIVE' && (
                       <Button size="sm" variant="default" onClick={() => handleCompleteSprint(sprint.id)}>
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Complete Sprint
+                        <CheckCircle2 className="h-4 w-4 mr-1" /> Complete Sprint
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditingSprint(sprint)}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => setEditingSprint(sprint)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDeletingSprintId(sprint.id)}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => setDeletingSprintId(sprint.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                     <Badge variant={sprint.status === 'ACTIVE' ? 'default' : 'secondary'}>
@@ -299,23 +261,14 @@ export default function BacklogPage() {
                           <div className="flex items-center gap-2 flex-1">
                             <span className="text-sm font-medium text-muted-foreground">{item.key}</span>
                             {editingItemId === item.id ? (
-
                               <input
                                 value={editingSummary}
                                 autoFocus
                                 onChange={(e) => setEditingSummary(e.target.value)}
-                                onBlur={() => {
-                                  // ❌ DO NOT SAVE HERE
-                                  setEditingItemId(null);
-                                }}
+                                onBlur={() => setEditingItemId(null)}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    saveSummary(item); // ✅ SAVE ONLY HERE
-                                  }
-                                  if (e.key === "Escape") {
-                                    setEditingItemId(null);
-                                  }
+                                  if (e.key === "Enter") { e.preventDefault(); saveSummary(item); }
+                                  if (e.key === "Escape") setEditingItemId(null);
                                 }}
                                 className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
                               />
@@ -323,7 +276,7 @@ export default function BacklogPage() {
                               <span
                                 className="text-sm cursor-text hover:bg-muted px-1 rounded"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // 🚨 IMPORTANT
+                                  e.stopPropagation();
                                   setEditingItemId(item.id);
                                   setEditingSummary(item.summary);
                                 }}
@@ -332,13 +285,10 @@ export default function BacklogPage() {
                                 {item.summary}
                               </span>
                             )}
-
                           </div>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Badge variant="outline">{item.priority}</Badge>
-                            {item.storyPoints && (
-                              <Badge variant="secondary">{item.storyPoints} SP</Badge>
-                            )}
+                            {item.storyPoints && <Badge variant="secondary">{item.storyPoints} SP</Badge>}
                             <AssigneeSelect
                               itemId={item.id}
                               currentAssigneeId={item.assignee?.id}
@@ -349,6 +299,7 @@ export default function BacklogPage() {
                               item={item}
                               sprints={allSprints}
                               allItems={sprintItems}
+                              boardColumns={boardColumns}
                               onSuccess={fetchData}
                             />
                           </div>
@@ -394,18 +345,10 @@ export default function BacklogPage() {
                             value={editingSummary}
                             autoFocus
                             onChange={(e) => setEditingSummary(e.target.value)}
-                            onBlur={() => {
-                              // ❌ DO NOT SAVE HERE
-                              setEditingItemId(null);
-                            }}
+                            onBlur={() => setEditingItemId(null)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                saveSummary(item); // ✅ SAVE ONLY HERE
-                              }
-                              if (e.key === "Escape") {
-                                setEditingItemId(null);
-                              }
+                              if (e.key === "Enter") { e.preventDefault(); saveSummary(item); }
+                              if (e.key === "Escape") setEditingItemId(null);
                             }}
                             className="text-sm border rounded px-1 bg-yellow-50 focus:outline-none w-full"
                           />
@@ -413,7 +356,7 @@ export default function BacklogPage() {
                           <span
                             className="text-sm cursor-text hover:bg-muted px-1 rounded"
                             onClick={(e) => {
-                              e.stopPropagation(); // 🚨 IMPORTANT
+                              e.stopPropagation();
                               setEditingItemId(item.id);
                               setEditingSummary(item.summary);
                             }}
@@ -422,14 +365,10 @@ export default function BacklogPage() {
                             {item.summary}
                           </span>
                         )}
-
                       </div>
-
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <Badge variant="outline">{item.priority}</Badge>
-                        {item.storyPoints && (
-                          <Badge variant="secondary">{item.storyPoints} SP</Badge>
-                        )}
+                        {item.storyPoints && <Badge variant="secondary">{item.storyPoints} SP</Badge>}
                         <AssigneeSelect
                           itemId={item.id}
                           currentAssigneeId={item.assignee?.id}
@@ -440,6 +379,7 @@ export default function BacklogPage() {
                           item={item}
                           sprints={allSprints}
                           allItems={backlogItems}
+                          boardColumns={boardColumns}
                           onSuccess={fetchData}
                         />
                       </div>
@@ -483,7 +423,7 @@ export default function BacklogPage() {
         open={!!selectedWorkItemId}
         onOpenChange={(open) => !open && setSelectedWorkItemId(null)}
         onSuccess={fetchData}
-        boardColumns={space.boardColumns || []}
+        boardColumns={space.boardColumns ?? []}
         members={space.members || []}
       />
     </MainLayout>
