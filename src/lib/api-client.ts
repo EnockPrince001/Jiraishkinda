@@ -41,7 +41,12 @@ export const authApi = {
       throw new Error(error.message || 'Invalid email or password');
     }
 
-    return response.json();
+    const result = await response.json();
+
+    // 🔥 SAVE TOKEN HERE
+    localStorage.setItem("token", result.token);
+    
+    return result;
   },
 
   async register(data: RegisterRequest): Promise<void> {

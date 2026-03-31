@@ -73,6 +73,13 @@ export const GET_WORK_ITEMS = gql`
       reporter {
         id
         userName
+         }
+
+      # 🔥 ADD THIS PART
+      comments {
+        id
+        commentText
+        createdAt
       }
     }
   }
@@ -171,13 +178,21 @@ export const COMPLETE_SPRINT = gql`
 
 export const DELETE_WORK_ITEM = gql`
   mutation DeleteWorkItem($itemId: UUID!) {
-    deleteWorkItem(workItemId: $itemId) {
-      id
-    }
+    deleteWorkItem(workItemId: $itemId)
   }
 `;
 
-export const MOVE_WORK_ITEM = gql`
+export const ADD_WORK_ITEM_COMMENT = gql`
+mutation AddWorkItemComment($workItemId: UUID!, $commentText: String!) {
+  addWorkItemComment(workItemId: $workItemId, commentText: $commentText) {
+    id
+    commentText
+    createdAt
+  }
+}
+`;
+
+export const MOVE_WORK_ITEM= gql`
   mutation MoveWorkItem($itemId: UUID!, $sprintId: UUID, $moveToBacklog: Boolean) {
     updateWorkItem(workItemId: $itemId, input: { sprintId: $sprintId, moveToBacklog: $moveToBacklog }) {
       id
@@ -185,6 +200,8 @@ export const MOVE_WORK_ITEM = gql`
     }
   }
 `;
+
+
 
 export const MOVE_WORK_ITEM_UP = gql`
   mutation MoveWorkItemUp($workItemId: UUID!) {
@@ -199,6 +216,24 @@ export const MOVE_WORK_ITEM_UP = gql`
 export const MOVE_WORK_ITEM_TO_TOP = gql`
   mutation MoveWorkItemToTop($workItemId: UUID!) {
     moveWorkItemToTop(workItemId: $workItemId) {
+      id
+      order
+      boardColumnId
+    }
+  }
+`;
+
+export const MOVE_WORK_ITEM_DRAG = gql`
+  mutation MoveWorkItem(
+    $workItemId: UUID!,
+    $targetColumnId: UUID!,
+    $targetIndex: Int!
+  ) {
+    moveWorkItem(
+      workItemId: $workItemId,
+      targetColumnId: $targetColumnId,
+      targetIndex: $targetIndex
+    ) {
       id
       order
       boardColumnId
@@ -348,5 +383,21 @@ export const MOVE_BOARD_COLUMN_RIGHT = gql`
 export const DELETE_BOARD_COLUMN = gql`
   mutation DeleteBoardColumn($columnId: UUID!, $targetColumnId: UUID!) {
     deleteBoardColumn(columnId: $columnId, targetColumnId: $targetColumnId)
+  }
+`;
+
+export const DELETE_WORK_ITEM_COMMENT = gql`
+  mutation DeleteWorkItemComment($commentId: UUID!) {
+    deleteWorkItemComment(commentId: $commentId)
+  }
+`;
+
+export const UPDATE_WORK_ITEM_COMMENT = gql`
+  mutation UpdateWorkItemComment($commentId: UUID!, $commentText: String!) {
+    updateWorkItemComment(commentId: $commentId, commentText: $commentText) {
+      id
+      commentText
+      createdAt
+    }
   }
 `;
