@@ -5,18 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { getGraphQLClient } from "@/lib/graphql-client";
 import { useAuth } from "@/context/AuthContext";
-import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN, TOGGLE_WORK_ITEM_FLAG, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM, CREATE_WORK_ITEM } from "@/lib/queries";
+import { GET_SPACE_DATA, GET_WORK_ITEMS, ADD_BOARD_COLUMN,ADD_WORK_ITEM_COMMENT, TOGGLE_WORK_ITEM_FLAG,MOVE_WORK_ITEM,MOVE_WORK_ITEM_DRAG, UPDATE_WORK_ITEM, MOVE_BOARD_COLUMN_LEFT, MOVE_BOARD_COLUMN_RIGHT, DELETE_BOARD_COLUMN, MOVE_WORK_ITEM_TO_TOP, MOVE_WORK_ITEM_UP, COMPLETE_SPRINT, UPDATE_WORK_ITEM_DETAILS, DELETE_WORK_ITEM, CREATE_WORK_ITEM } from "@/lib/queries";
 import { useToast } from "@/hooks/use-toast";
+import { DELETE_WORK_ITEM_COMMENT,UPDATE_WORK_ITEM_ASSIGNEE  } from "@/lib/queries";
+import { UPDATE_WORK_ITEM_COMMENT } from "@/lib/queries";
 import { Pencil } from "lucide-react";
 import { useDraggable, } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Badge } from "@/components/ui/badge";
 import { StoryPoints } from "@/components/StoryPoints";
 import { Card, CardContent } from "@/components/ui/card";
+import { useMutation } from "@tanstack/react-query";
 import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 import { Space, WorkItem } from "@/types";
 import { CSS } from "@dnd-kit/utilities";
-import { useSortable } from "@dnd-kit/sortable";
+import { GET_WORK_ITEM_DETAILS } from "@/lib/queries";
+import { useSortable,SortableContext,} from "@dnd-kit/sortable";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -126,8 +130,29 @@ export default function BoardPage() {
   const [creatingColumnId, setCreatingColumnId] = useState<string | null>(null);
   const [newTaskSummary, setNewTaskSummary] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [activeCommentItemId, setActiveCommentItemId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [commentText, setCommentText] = useState("");
   const { token } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const test = async () => {
+      const client = getGraphQLClient(token || undefined);
+  
+      const res = await client.request(GET_WORK_ITEM_DETAILS, {
+        id: "28f2bbb1-e8c7-4a93-b412-8930479a925b",
+      });
+  
+      console.log("DETAILS:", res);
+    };
+  
+    if (token) {
+      test();
+    }
+  }, [token]);
+  
   const handleDeleteItem = async () => {
     if (!deletingItem) return;
 
@@ -167,28 +192,48 @@ export default function BoardPage() {
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
-
     if (!over) return;
-
-    const itemId = active.id;
-    const newColumnId = over.id;
-
-    const item = workItems.find(i => i.id === itemId);
-    if (!item || item.boardColumnId === newColumnId) return;
-
+  
+    const activeId = String(active.id);
+    const overId = String(over.id);
+  
+    const activeItem = workItems.find(i => i.id === activeId);
+    if (!activeItem) return;
+  
+    let targetColumnId = activeItem.boardColumnId;
+    let targetIndex = 0;
+  
+    const overItem = workItems.find(i => i.id === overId);
+  
+    if (overItem) {
+      targetColumnId = overItem.boardColumnId;
+  
+      const columnItems = workItems
+        .filter(i => i.boardColumnId === targetColumnId)
+        .sort((a, b) => a.order - b.order);
+  
+      targetIndex = columnItems.findIndex(i => i.id === overId);
+    } else {
+      targetColumnId = overId;
+  
+      const columnItems = workItems
+        .filter(i => i.boardColumnId === targetColumnId)
+        .sort((a, b) => a.order - b.order);
+  
+      targetIndex = columnItems.length;
+    }
+  
     try {
       const client = getGraphQLClient(token || undefined);
-
-      await client.request(UPDATE_WORK_ITEM, {
-        itemId,
-        boardColumnId: newColumnId,
+  
+      await client.request(MOVE_WORK_ITEM, {
+        workItemId: activeId,
+        targetColumnId,
+        targetIndex,
       });
-
-      // ✅ Re-fetch from backend to get CORRECT order
+  
       await fetchData();
-
     } catch (error) {
-      console.error(error);
       toast({
         title: "Error",
         description: "Failed to move task",
@@ -197,6 +242,24 @@ export default function BoardPage() {
     }
   };
 
+  const assignUser = async (item, userId) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+  
+      await client.request(UPDATE_WORK_ITEM_ASSIGNEE, {
+        itemId: item.id,
+        assigneeId: userId,
+      });
+  
+      fetchData(); // refresh
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to assign user",
+        variant: "destructive",
+      });
+    }
+  };
 
   const moveColumnLeft = async (column) => {
     try {
@@ -342,6 +405,8 @@ export default function BoardPage() {
     }
   };
 
+
+
   const openLabelDialog = (item) => {
     console.log("Open label dialog for", item.key);
 
@@ -350,6 +415,57 @@ export default function BoardPage() {
     // setLabelDialogOpen(true)
   };
 
+  const handleOpenComment = (item) => {
+    setActiveCommentItemId(item.id);
+  };
+
+  const addComment = useMutation({
+  mutationFn: async (data: { workItemId: string; commentText: string }) => {
+    const token = localStorage.getItem("token"); // 🔥 get token
+
+    const response = await fetch("https://localhost:7151/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // 🔥 THIS FIXES AUTH
+      },
+      body: JSON.stringify({
+        query: ADD_WORK_ITEM_COMMENT,
+        variables: data,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.errors) {
+      throw new Error(result.errors[0].message);
+    }
+
+    return result.data;
+  },
+});
+
+  const handleSaveComment = async (item) => {
+    try {
+      if (!commentText.trim()) return;
+  
+      await addComment.mutateAsync({
+        workItemId: item.id,
+        commentText: commentText,
+      });
+      await fetchData(); // ✅ WAIT for data to refresh
+      setCommentText("");
+      setActiveCommentItemId(null);
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      });
+    }
+  };
   const fetchData = async () => {
     if (!spaceKey) return;
 
@@ -374,6 +490,65 @@ export default function BoardPage() {
       setLoading(false);
     }
   };
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+  
+      await client.request(DELETE_WORK_ITEM_COMMENT, {
+        commentId,
+      });
+  
+      await fetchData(); // refresh comments
+  
+      toast({
+        title: "Deleted",
+        description: "Comment removed successfully",
+      });
+  
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to delete comment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditComment = (item, comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentText((comment as any).commentText);
+  };
+
+  const handleUpdateComment = async () => {
+    try {
+      const client = getGraphQLClient(token || undefined);
+  
+      await client.request(UPDATE_WORK_ITEM_COMMENT, {
+        commentId: editingCommentId,
+        commentText: editingCommentText,
+      });
+  
+      setEditingCommentId(null);
+      setEditingCommentText("");
+  
+      await fetchData();
+  
+      toast({
+        title: "Updated",
+        description: "Comment updated successfully",
+      });
+  
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to update comment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteWorkItem = async () => {
     if (!deletingItem) return;
 
@@ -738,7 +913,9 @@ export default function BoardPage() {
                           .sort((a, b) => a.order - b.order)
                           .map((item) => (
                             <DraggableItem key={item.id} item={item}>
-                              {({ listeners }) => (
+                              {({ listeners }) => {
+                                return (
+                                    <>
                                 <Card
 
                                   className="group hover:shadow-md transition-all relative"
@@ -893,7 +1070,12 @@ export default function BoardPage() {
                                           </DropdownMenuItem>
 
                                           <DropdownMenuSeparator />
-
+                                          <DropdownMenuItem
+  onClick={() => handleOpenComment(item)}
+>
+  Comment
+</DropdownMenuItem>
+<DropdownMenuSeparator />
                                           <DropdownMenuItem
                                             className="text-destructive"
                                             onClick={() => setDeletingItem(item)}
@@ -927,14 +1109,49 @@ export default function BoardPage() {
                                       </div>
 
                                       <div className="flex items-center gap-2">
-                                        {item.assignee && (
-                                          <span className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                                            {item.assignee.userName
-                                              .charAt(0)
-                                              .toUpperCase()}
-                                          </span>
-                                        )}
-                                        <Badge
+                                      <DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <button
+      onClick={(e) => e.stopPropagation()}
+      className="
+        w-6 h-6 rounded-full 
+        bg-muted flex items-center justify-center 
+        text-[11px] font-semibold text-muted-foreground
+        hover:bg-primary/20 hover:text-primary
+        transition
+      "
+    >
+      {item.assignee ? (
+        item.assignee.userName.charAt(0).toUpperCase()
+      ) : (
+        <span className="text-sm">👤</span>
+      )}
+    </button>
+  </DropdownMenuTrigger>
+
+  <DropdownMenuContent align="end" className="w-44">
+    <DropdownMenuItem onClick={() => assignUser(item, null)}>
+      Unassigned
+    </DropdownMenuItem>
+
+    <DropdownMenuSeparator />
+
+    {space.members?.map((member) => (
+      <DropdownMenuItem
+        key={member.user.id}
+        onClick={() => assignUser(item, member.user.id)}
+        className="flex items-center gap-2"
+      >
+        <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+          {member.user.userName.charAt(0).toUpperCase()}
+        </span>
+
+        {member.user.userName}
+      </DropdownMenuItem>
+    ))}
+  </DropdownMenuContent>
+</DropdownMenu>
+                                       <Badge
                                           variant="outline"
                                           className="text-[10px] px-1 py-0 h-5"
                                         >
@@ -944,7 +1161,110 @@ export default function BoardPage() {
                                     </div>
                                   </CardContent>
                                 </Card>
-                              )}
+
+{/* ✅ SHOW COMMENTS HERE */}
+{activeCommentItemId === item.id && item.comments && item.comments.length > 0 && (
+  <div className="mt-2 space-y-1">
+    
+    {item.comments.map((comment) => (   // ✅ THIS LINE MUST EXIST
+
+      <div
+        key={comment.id}
+        className="text-xs bg-muted p-2 rounded flex justify-between items-start"
+      >
+        {/* LEFT SIDE */}
+        <div className="flex-1">
+
+          {editingCommentId === comment.id ? (
+            <div className="flex flex-col gap-1">
+              <textarea
+                value={editingCommentText}
+                onChange={(e) => setEditingCommentText(e.target.value)}
+                className="w-full border rounded p-1 text-xs"
+              />
+
+              <div className="flex gap-2">
+                <button
+                  className="text-green-600 text-[10px]"
+                  onClick={handleUpdateComment}
+                >
+                  Save
+                </button>
+
+                <button
+                  className="text-gray-500 text-[10px]"
+                  onClick={() => setEditingCommentId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="whitespace-pre-wrap">
+                {(comment as any).commentText}
+              </p>
+              <span className="text-[10px] text-gray-500">
+                {new Date((comment as any).createdAt).toLocaleString()}
+              </span>
+            </>
+          )}
+
+        </div>
+
+        {/* RIGHT SIDE */}
+        <div className="flex gap-2 ml-2">
+          <button
+            className="text-blue-500 text-[10px]"
+            onClick={() => handleEditComment(item, comment)}
+          >
+            Edit
+          </button>
+
+          <button
+            className="text-red-500 text-[10px]"
+            onClick={() => handleDeleteComment(comment.id)}
+          >
+            Delete
+          </button>
+        </div>
+
+      </div>
+
+    ))}  {/* ✅ THIS CLOSING MUST EXIST */}
+
+  </div>
+)}
+
+                                {activeCommentItemId === item.id && (
+                                    <div className="mt-2 p-2 border rounded bg-white shadow">
+                                      <textarea
+                                        className="w-full border rounded p-2 text-sm"
+                                        placeholder="Write your comment..."
+                                        value={commentText}
+                                        onChange={(e) => setCommentText(e.target.value)}
+                                      />
+                                  
+                                      <div className="flex gap-2 mt-2">
+                                        <button
+                                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                                          onClick={() => handleSaveComment(item)}
+                                        >
+                                          Save
+                                        </button>
+                                  
+                                        <button
+                                          className="px-3 py-1 bg-gray-300 rounded text-sm"
+                                          onClick={() => setActiveCommentItemId(null)}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                  </>
+                                );
+              }}
                             </DraggableItem>
                           ))}
                         {/* INLINE CREATE INPUT (BOTTOM) */}
