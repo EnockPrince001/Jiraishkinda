@@ -106,6 +106,16 @@ export const CREATE_SPACE = gql`
   }
 `;
 
+export const UPDATE_SPACE = gql`
+  mutation UpdateSpace($spaceId: UUID!, $input: UpdateSpaceInput!) {
+    updateSpace(spaceId: $spaceId, input: $input) {
+      id
+      name
+      key
+      type
+    }
+  }
+`;
 export const CREATE_SPRINT = gql`
   mutation CreateSprint($input: CreateSprintInput!) {
     createSprint(input: $input) {
