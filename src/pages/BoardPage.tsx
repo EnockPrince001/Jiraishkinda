@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 import { Space, WorkItem } from "@/types";
+import { rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GET_WORK_ITEM_DETAILS } from "@/lib/queries";
 import { useSortable,SortableContext,} from "@dnd-kit/sortable";
@@ -105,6 +106,7 @@ const DraggableItem = ({ item, children }: { item: any, children: any }) => {
       ref={setNodeRef}
       style={style}
       {...attributes}
+      {...listeners}   // ✅ ADD THIS LINE
     >
       {typeof children === "function"
         ? children({ listeners })
@@ -117,6 +119,7 @@ export default function BoardPage() {
   const [space, setSpace] = useState<Space | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingSummary, setEditingSummary] = useState("");
@@ -124,6 +127,7 @@ export default function BoardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const activeItem = workItems.find(i => i.id === activeItemId);
   const [hoveredColumnId, setHoveredColumnId] = useState<string | null>(null);
   const [openColumnMenuId, setOpenColumnMenuId] = useState<string | null>(null);
   const [confirmDeleteColumnId, setConfirmDeleteColumnId] = useState<string | null>(null);
@@ -200,12 +204,13 @@ export default function BoardPage() {
     const activeItem = workItems.find(i => i.id === activeId);
     if (!activeItem) return;
   
-    let targetColumnId = activeItem.boardColumnId;
+    let targetColumnId;
     let targetIndex = 0;
   
     const overItem = workItems.find(i => i.id === overId);
   
     if (overItem) {
+      // ✅ Dropped on another item
       targetColumnId = overItem.boardColumnId;
   
       const columnItems = workItems
@@ -214,6 +219,7 @@ export default function BoardPage() {
   
       targetIndex = columnItems.findIndex(i => i.id === overId);
     } else {
+      // ✅ Dropped on column (EMPTY SPACE)
       targetColumnId = overId;
   
       const columnItems = workItems
@@ -223,10 +229,18 @@ export default function BoardPage() {
       targetIndex = columnItems.length;
     }
   
+    // 🚨 PREVENT useless call
+    if (
+      activeItem.boardColumnId === targetColumnId &&
+      targetIndex === activeItem.order
+    ) {
+      return;
+    }
+  
     try {
       const client = getGraphQLClient(token || undefined);
   
-      await client.request(MOVE_WORK_ITEM, {
+      await client.request(MOVE_WORK_ITEM_DRAG, {
         workItemId: activeId,
         targetColumnId,
         targetIndex,
@@ -234,6 +248,7 @@ export default function BoardPage() {
   
       await fetchData();
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to move task",
@@ -647,7 +662,7 @@ export default function BoardPage() {
   };
   if (loading) {
     return (
-      <MainLayout spaceName={space?.name} spaceType={space?.type} spaceId={space?.id}>
+      <MainLayout spaceName={space?.name} spaceType={space?.type}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-lg">Loading...</div>
         </div>
@@ -682,9 +697,17 @@ export default function BoardPage() {
       );
     }
   }
-
+  // 🔍 SEARCH FILTER (safe — after sprint filter)
+if (searchQuery.trim() !== "") {
+  boardItems = boardItems.filter(item =>
+    item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+}
   return (
-    <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
+    <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 h-full flex flex-col overflow-auto">
         {/* Show Active Sprint Banner for Scrum */}
         {space.type === 'SCRUM' && (
@@ -713,6 +736,24 @@ export default function BoardPage() {
                 >
                   Complete Sprint
                 </Button>
+                <div className="relative">
+  <Input
+    placeholder="Search board"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="
+      w-[220px] pl-8
+      focus-visible:ring-2 
+      focus-visible:ring-blue-500
+      focus-visible:border-blue-500
+    "
+  />
+
+  {/* Search icon */}
+  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+    🔍
+  </span>
+</div>
               </div>
             ) : (
               <div className="p-4 border rounded-lg bg-muted/20 text-center w-full">
@@ -786,14 +827,31 @@ export default function BoardPage() {
           flex items-center justify-between p-3 bg-muted/50
             rounded-lg sticky top-0 z-20 backdrop-blur
                ">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-sm uppercase tracking-wide">
-                          {column.name}
-                        </h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {columnItems.length}
-                        </Badge>
-                      </div>
+                      <div className="flex items-center gap-2 justify-between">
+  
+  {/* LEFT SIDE */}
+  <div className="flex items-center gap-2">
+    <h3 className="font-semibold text-sm uppercase tracking-wide">
+      {column.name}
+    </h3>
+
+    <Badge variant="secondary" className="text-xs">
+      {columnItems.length}
+    </Badge>
+  </div>
+
+  {/* RIGHT SIDE (ONLY DONE COLUMN) */}
+  {column.name.toLowerCase() === "done" && (
+    <div
+      title="When complete sprint is selected work is also marked as completed"
+      className="flex items-center gap-1 text-yellow-500 text-xs"
+    >
+      <span>✔✔</span>
+      <span>— —</span>
+    </div>
+  )}
+
+</div>
                       {/* 3 DOTS (HOVER ONLY) */}
                       {hoveredColumnId === column.id && (
                         <div className="relative">
@@ -909,6 +967,10 @@ export default function BoardPage() {
                             + Create
                           </button>
                         )}
+                        <SortableContext
+  items={columnItems.map(i => i.id)}
+  strategy={rectSortingStrategy}
+>
                         {[...columnItems]
                           .sort((a, b) => a.order - b.order)
                           .map((item) => (
@@ -928,9 +990,8 @@ export default function BoardPage() {
 
                                       {/* DRAG HANDLE */}
                                       <div
-                                        {...listeners}
-
-                                        onClick={(e) => e.stopPropagation()}
+  {...listeners}
+  onPointerDown={(e) => e.stopPropagation()}
                                         className="cursor-grab text-muted-foreground hover:text-foreground select-none pt-1"
                                         title="Drag"
                                       >
@@ -970,14 +1031,23 @@ export default function BoardPage() {
                                             }}
                                           >
 
-                                            <p className="text-sm font-medium whitespace-pre-wrap break-words flex items-start gap-1">
-                                              {item.flagged && (
-                                                <span title="Flagged" className="text-red-500">
-                                                  🚩
-                                                </span>
-                                              )}
-                                              <span>{item.summary}</span>
-                                            </p>
+<p className="text-sm font-medium whitespace-pre-wrap break-words flex items-start gap-1">
+  {item.flagged && (
+    <span title="Flagged" className="text-red-500">
+      🚩
+    </span>
+  )}
+
+  <span
+    className={
+      column.name.toLowerCase() === "done"
+        ? "line-through text-muted-foreground"
+        : ""
+    }
+  >
+    {item.summary}
+  </span>
+</p>
                                             <Pencil
                                               size={14}
                                               className="absolute right-1 top-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1109,6 +1179,12 @@ export default function BoardPage() {
                                       </div>
 
                                       <div className="flex items-center gap-2">
+
+{/* ✅ GREEN TICK ONLY WHEN DONE */}
+{column.name.toLowerCase() === "done" && (
+  <span className="text-green-500 font-bold">✔</span>
+)}
+
                                       <DropdownMenu>
   <DropdownMenuTrigger asChild>
     <button
@@ -1267,6 +1343,7 @@ export default function BoardPage() {
               }}
                             </DraggableItem>
                           ))}
+                          </SortableContext>
                         {/* INLINE CREATE INPUT (BOTTOM) */}
                         {creatingColumnId === column.id && columnItems.length > 0 && (
                           <div className="bg-background border rounded-md p-2 space-y-2">
@@ -1341,7 +1418,17 @@ export default function BoardPage() {
           </DragOverlay>
         </DndContext>
       </div>
-
+     <DragOverlay>
+  {activeItem ? (
+    <div className="rotate-2 shadow-2xl scale-105 opacity-90">
+      <div className="p-3 bg-white rounded shadow-lg">
+        <p className="text-sm font-medium">
+          {activeItem.summary}
+        </p>
+      </div>
+    </div>
+  ) : null}
+</DragOverlay>
 
       <EditWorkItemDialog
         workItemId={selectedWorkItemId}

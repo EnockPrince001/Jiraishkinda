@@ -58,6 +58,7 @@ export const GET_WORK_ITEMS = gql`
       id
       key
       summary
+      isCompleted
       boardColumnId
       order 
       priority

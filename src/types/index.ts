@@ -46,6 +46,7 @@ export interface WorkItem {
   comments: Comment[];
   subtasks: WorkItem[];
   flagged: boolean;
+  isCompleted?: boolean;
 }
 
 export interface Sprint {

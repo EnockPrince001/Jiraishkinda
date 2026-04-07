@@ -73,6 +73,7 @@ export default function BacklogPage() {
   const [space, setSpace] = useState<Space | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
@@ -185,7 +186,17 @@ export default function BacklogPage() {
     );
   }
 
-  const backlogItems = workItems.filter(item => !item.sprintId);
+  let backlogItems = workItems.filter(item => !item.sprintId);
+
+// 🔍 Apply search to backlog
+if (searchQuery.trim() !== "") {
+  backlogItems = backlogItems.filter(item =>
+    item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+}
   const allSprints = space?.sprints.filter(s => s.status !== 'COMPLETED') || [];
   // ?? instead of || so that null from GraphQL is safely coerced to []
   const boardColumns = space.boardColumns ?? [];
@@ -193,16 +204,48 @@ export default function BacklogPage() {
   return (
     <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Backlog</h1>
-          <div className="flex gap-2">
-            <CreateSprintDialog spaceId={space.id} onSuccess={fetchData} />
-            <CreateWorkItemDialog spaceId={space.id} onSuccess={fetchData} />
-          </div>
-        </div>
+      <div className="flex items-center justify-between gap-4">
+  {/* LEFT SIDE */}
+  <div className="flex items-center gap-4">
+    <h1 className="text-2xl font-bold">Backlog</h1>
 
+    {/* 🔍 SEARCH */}
+    <div className="relative">
+      <input
+        placeholder="Search backlog"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="
+          w-[220px] pl-8 pr-2 py-1 text-sm border rounded-md
+          focus:outline-none
+          focus:ring-2 focus:ring-blue-500
+          focus:border-blue-500
+        "
+      />
+      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+        🔍
+      </span>
+    </div>
+  </div>
+
+  {/* RIGHT SIDE */}
+  <div className="flex gap-2">
+    <CreateSprintDialog spaceId={space.id} onSuccess={fetchData} />
+    <CreateWorkItemDialog spaceId={space.id} onSuccess={fetchData} />
+  </div>
+</div>
         {allSprints.map((sprint) => {
-          const sprintItems = workItems.filter(item => item.sprintId === sprint.id);
+          let sprintItems = workItems.filter(item => item.sprintId === sprint.id);
+
+          // 🔍 Apply search to sprint items
+          if (searchQuery.trim() !== "") {
+            sprintItems = sprintItems.filter(item =>
+              item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          }
 
           return (
             <Card key={sprint.id} className="mb-4">
