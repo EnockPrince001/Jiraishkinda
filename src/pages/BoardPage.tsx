@@ -120,6 +120,14 @@ export default function BoardPage() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  // 🔍 FILTER STATE (JIRA-LIKE)
+const [filters, setFilters] = useState({
+  status: [] as string[],
+  priority: [] as string[],
+  assignee: [] as string[],
+  sprint: [] as string[],
+});
+
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingSummary, setEditingSummary] = useState("");
@@ -133,6 +141,58 @@ export default function BoardPage() {
   const [confirmDeleteColumnId, setConfirmDeleteColumnId] = useState<string | null>(null);
   const [creatingColumnId, setCreatingColumnId] = useState<string | null>(null);
   const [newTaskSummary, setNewTaskSummary] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const totalFilters =
+  filters.status.length +
+  filters.priority.length +
+  filters.assignee.length +
+  filters.sprint.length;
+
+  const filterCounts = {
+    Status: filters.status.length,
+    Priority: filters.priority.length,
+    Assignee: filters.assignee.length,
+    Sprint: filters.sprint.length,
+    Parent: 0,
+    "Work type": 0,
+    Labels: 0,
+  };
+
+  // 📊 CURRENT ACTIVE FILTER COUNT (RIGHT PANEL)
+const getCurrentFilterCount = () => {
+  if (!activeFilter) return 0;
+
+  switch (activeFilter) {
+    case "Status":
+      return filters.status.length;
+    case "Priority":
+      return filters.priority.length;
+    case "Assignee":
+      return filters.assignee.length;
+    case "Sprint":
+      return filters.sprint.length;
+    default:
+      return 0;
+  }
+};
+
+// 📊 TOTAL OPTIONS PER FILTER TYPE
+const getTotalOptions = () => {
+  switch (activeFilter) {
+    case "Status":
+      return space.boardColumns?.length || 0;
+    case "Priority":
+      return 3;
+    case "Assignee":
+      return space.members?.length || 0;
+    case "Sprint":
+      return space.sprints?.length || 0;
+    default:
+      return 0;
+  }
+};
+
   const [isCreating, setIsCreating] = useState(false);
   const [activeCommentItemId, setActiveCommentItemId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -140,6 +200,21 @@ export default function BoardPage() {
   const [commentText, setCommentText] = useState("");
   const { token } = useAuth();
   const { toast } = useToast();
+
+// ✅ HELPER FUNCTION GOES HERE
+const toggleFilter = (type: keyof typeof filters, value: string) => {
+  setFilters((prev) => {
+    const exists = prev[type].includes(value);
+
+    return {
+      ...prev,
+      [type]: exists
+        ? prev[type].filter((v) => v !== value)
+        : [...prev[type], value],
+    };
+  });
+};
+
 
   useEffect(() => {
     const test = async () => {
@@ -706,6 +781,40 @@ item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
 item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 }
+
+// ================= FILTER LOGIC =================
+
+// STATUS
+if (filters.status.length > 0) {
+  boardItems = boardItems.filter(item =>
+    filters.status.includes(item.boardColumnId)
+  );
+}
+
+// PRIORITY
+if (filters.priority.length > 0) {
+  boardItems = boardItems.filter(item =>
+    item.priority && filters.priority.includes(item.priority.toUpperCase())
+  );
+}
+
+// ASSIGNEE
+if (filters.assignee.length > 0) {
+  boardItems = boardItems.filter(item => {
+    if (!item.assignee) {
+      return filters.assignee.includes("unassigned");
+    }
+    return filters.assignee.includes(item.assignee.id);
+  });
+}
+
+// SPRINT
+if (filters.sprint.length > 0) {
+  boardItems = boardItems.filter(item =>
+    item.sprintId && filters.sprint.includes(item.sprintId)
+  );
+}
+
   return (
     <MainLayout spaceName={space.name} spaceType={space.type}>
       <div className="p-6 h-full flex flex-col overflow-auto">
@@ -713,7 +822,7 @@ item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
         {space.type === 'SCRUM' && (
           <div className="mb-4 flex items-center justify-between">
             {activeSprint ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">{activeSprint.name}</h2>
                   <Badge>Active Sprint</Badge>
@@ -754,6 +863,226 @@ item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
     🔍
   </span>
 </div>
+
+{/* ✅ FILTER BUTTON */}
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() => setIsFilterOpen((prev) => !prev)}
+  className={`
+    flex items-center gap-2
+    border-blue-500
+    ${isFilterOpen ? "bg-blue-50 text-blue-600 border-blue-600" : ""}
+  `}
+>
+  <span className="text-lg leading-none">≡</span>
+
+  Filter
+
+  {/* 🔵 COUNT BADGE */}
+  {totalFilters > 0 && (
+    <span className="ml-1 bg-blue-600 text-white text-xs px-2 py-0.5 rounded">
+      {totalFilters}
+    </span>
+  )}
+</Button>
+
+{isFilterOpen && (
+  <div className="absolute top-10 right-0 w-[450px] h-[320px] bg-white border rounded-lg shadow-lg flex z-50">
+
+    {/* ❌ CLOSE BUTTON */}
+    <button
+      onClick={() => {
+        setIsFilterOpen(false);
+        setActiveFilter(null);
+      }}
+      className="absolute top-2 right-2 text-gray-500 hover:text-black"
+    >
+      ✖
+    </button>
+
+    {/* LEFT MENU */}
+    <div className="w-[150px] border-r bg-gray-50 text-sm pt-6">
+    {["Parent", "Sprint", "Assignee", "Work type", "Labels", "Status", "Priority"].map((item) => {
+  const count = filterCounts[item];
+
+  return (
+    <div
+      key={item}
+      onClick={() => setActiveFilter(item)}
+      className={`
+        flex items-center justify-between px-3 py-2 cursor-pointer
+        ${
+          activeFilter === item || count > 0
+            ? "bg-blue-100 text-blue-600 font-medium"
+            : "hover:bg-gray-100"
+        }
+      `}
+    >
+      <span>{item}</span>
+
+      {/* 🔵 SHOW COUNT */}
+      {count > 0 && (
+        <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+})}
+    </div>
+
+    {/* RIGHT CONTENT */}
+    <div className="flex-1 p-4 text-sm overflow-auto pt-6">
+
+      {/* ✅ DEFAULT MESSAGE */}
+      {!activeFilter && (
+        <div className="text-muted-foreground">
+          Select a field to start creating a filter.
+        </div>
+      )}
+
+      {/* ================= ASSIGNEE ================= */}
+      {activeFilter === "Assignee" && (
+        <div>
+          <Input placeholder="Search assignee" className="mb-3" />
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={filters.assignee.includes("unassigned")}
+                onChange={() => toggleFilter("assignee", "unassigned")}
+              />
+              Unassigned
+            </label>
+
+            {space.members?.map((m) => (
+              <label key={m.user.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.assignee.includes(m.user.id)}
+                  onChange={() => toggleFilter("assignee", m.user.id)}
+                />
+                {m.user.userName}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= STATUS ================= */}
+      {activeFilter === "Status" && (
+        <div>
+          <Input placeholder="Search status" className="mb-3" />
+
+          <div className="space-y-2">
+            {space.boardColumns?.map((col) => (
+              <label key={col.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.status.includes(col.id)}
+                  onChange={() => toggleFilter("status", col.id)}
+                />
+                {col.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= PRIORITY ================= */}
+      {activeFilter === "Priority" && (
+        <div>
+          <Input placeholder="Search priority" className="mb-3" />
+
+          <div className="space-y-2">
+            {["LOW", "MEDIUM", "HIGH"].map((p) => (
+              <label key={p} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.priority.includes(p)}
+                  onChange={() => toggleFilter("priority", p)}
+                />
+                {p}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ================= SPRINT ================= */}
+      {activeFilter === "Sprint" && (
+        <div>
+          <Input placeholder="Search sprint" className="mb-3" />
+
+          <div className="space-y-2">
+            {space.sprints?.map((s) => (
+              <label key={s.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.sprint.includes(s.id)}
+                  onChange={() => toggleFilter("sprint", s.id)}
+                />
+                {s.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+{/* 🔵 FOOTER (JIRA STYLE) */}
+{activeFilter && (
+  <div className="flex items-center justify-between border-t pt-2 mt-3 text-sm">
+    
+    <button
+      onClick={() => {
+        const keyMap = {
+          Status: "status",
+          Priority: "priority",
+          Assignee: "assignee",
+          Sprint: "sprint",
+        };
+
+        const key = keyMap[activeFilter];
+
+        if (!key) return;
+
+        setFilters((prev) => ({
+          ...prev,
+          [key]: [],
+        }));
+      }}
+      className="text-blue-600 hover:underline"
+    >
+      Clear all
+    </button>
+
+    <span className="text-muted-foreground">
+      {getCurrentFilterCount()} of {getTotalOptions()}
+    </span>
+
+  </div>
+)}
+    </div>
+  </div>
+)}
+
+{totalFilters > 0 && (
+  <button
+    onClick={() =>
+      setFilters({
+        status: [],
+        priority: [],
+        assignee: [],
+        sprint: [],
+      })
+    }
+    className="text-sm text-blue-600 hover:underline"
+  >
+    Clear filters
+  </button>
+)}
+
               </div>
             ) : (
               <div className="p-4 border rounded-lg bg-muted/20 text-center w-full">

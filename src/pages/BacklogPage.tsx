@@ -74,6 +74,15 @@ export default function BacklogPage() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    status: [] as string[],
+    priority: [] as string[],
+    assignee: [] as string[],
+    sprint: [] as string[],
+  });
+  
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
   const [selectedWorkItemId, setSelectedWorkItemId] = useState<string | null>(null);
@@ -162,6 +171,34 @@ export default function BacklogPage() {
     }
   };
 
+  const toggleFilter = (type: keyof typeof filters, value: string) => {
+    setFilters((prev) => {
+      const exists = prev[type].includes(value);
+  
+      return {
+        ...prev,
+        [type]: exists
+          ? prev[type].filter((v) => v !== value)
+          : [...prev[type], value],
+      };
+    });
+  };
+  const totalFilters =
+  filters.status.length +
+  filters.priority.length +
+  filters.assignee.length +
+  filters.sprint.length;
+
+const filterCounts: Record<string, number> = {
+  Status: filters.status.length,
+  Priority: filters.priority.length,
+  Assignee: filters.assignee.length,
+  Sprint: filters.sprint.length,
+  Parent: 0,
+  "Work type": 0,
+  Labels: 0,
+};
+
   useEffect(() => {
     fetchData();
   }, [spaceKey, token]);
@@ -188,15 +225,45 @@ export default function BacklogPage() {
 
   let backlogItems = workItems.filter(item => !item.sprintId);
 
-// 🔍 Apply search to backlog
-if (searchQuery.trim() !== "") {
-  backlogItems = backlogItems.filter(item =>
-    item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-}
+  // 🔍 SEARCH FILTER
+  if (searchQuery.trim() !== "") {
+    backlogItems = backlogItems.filter(item =>
+      item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+  
+  // ✅ FILTERS
+  
+  if (filters.status.length > 0) {
+    backlogItems = backlogItems.filter(item =>
+      filters.status.includes(item.boardColumnId)
+    );
+  }
+  
+  if (filters.priority.length > 0) {
+    backlogItems = backlogItems.filter(item =>
+      item.priority && filters.priority.includes(item.priority.toUpperCase())
+    );
+  }
+  
+  if (filters.assignee.length > 0) {
+    backlogItems = backlogItems.filter(item => {
+      if (!item.assignee) {
+        return filters.assignee.includes("unassigned");
+      }
+      return filters.assignee.includes(item.assignee.id);
+    });
+  }
+  
+  if (filters.sprint.length > 0) {
+    backlogItems = backlogItems.filter(item =>
+      item.sprintId && filters.sprint.includes(item.sprintId)
+    );
+  }
+
   const allSprints = space?.sprints.filter(s => s.status !== 'COMPLETED') || [];
   // ?? instead of || so that null from GraphQL is safely coerced to []
   const boardColumns = space.boardColumns ?? [];
@@ -205,6 +272,7 @@ if (searchQuery.trim() !== "") {
     <MainLayout spaceName={space.name} spaceType={space.type} spaceId={space.id}>
       <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
+  
   {/* LEFT SIDE */}
   <div className="flex items-center gap-4">
     <h1 className="text-2xl font-bold">Backlog</h1>
@@ -215,17 +283,224 @@ if (searchQuery.trim() !== "") {
         placeholder="Search backlog"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="
-          w-[220px] pl-8 pr-2 py-1 text-sm border rounded-md
-          focus:outline-none
-          focus:ring-2 focus:ring-blue-500
-          focus:border-blue-500
-        "
+        className="w-[220px] pl-8 pr-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       />
       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
         🔍
       </span>
     </div>
+
+    {/* FILTER BUTTON */}
+    <div className="relative">
+    <Button
+  onClick={() => setIsFilterOpen(prev => !prev)}
+  className="flex items-center gap-2 bg-blue-50 text-blue-700 border border-blue-500 hover:bg-blue-100 transition-colors"
+>
+  <span className="text-lg">≡</span>
+  Filter  
+        {totalFilters > 0 && (
+          <span className="ml-1 text-xs bg-blue-500 text-white px-1 rounded">
+            {totalFilters}
+          </span>
+        )}
+      </Button>
+
+      {isFilterOpen && (
+  <div className="absolute mt-2 w-[500px] bg-white border rounded shadow-lg z-50">
+    
+    {/* TOP BAR WITH CLOSE BUTTON */}
+    <div className="flex justify-end p-2 border-b">
+      <button
+        onClick={() => setIsFilterOpen(false)}
+        className="text-gray-500 hover:text-black text-sm"
+      >
+        ✕
+      </button>
+    </div>
+
+    {/* MAIN CONTENT */}
+    <div className="flex">
+          
+          {/* LEFT PANEL */}
+          <div className="w-1/3 border-r">
+            {["Parent","Sprint","Assignee","Work type","Labels","Status","Priority"].map(item => {
+              const count = filterCounts[item] || 0;
+
+              return (
+                <div
+                  key={item}
+                  onClick={() => setActiveFilter(item)}
+                  className={`flex justify-between px-3 py-2 cursor-pointer ${
+                    count > 0
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "hover:bg-gray-100"
+                  }`}
+                >
+                  <span>{item}</span>
+                  {count > 0 && <span className="text-xs">{count}</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* RIGHT PANEL */}
+          <div className="w-2/3 p-3">
+            {!activeFilter && (
+              <div className="text-sm text-muted-foreground">
+                Select a field to start creating a filter.
+              </div>
+            )}
+
+            {activeFilter === "Assignee" && (
+              <div className="space-y-2">
+                <div
+                  className="flex items-center gap-2 cursor-pointer"
+                  onClick={() => toggleFilter("assignee", "unassigned")}
+                >
+                  <input
+                    type="checkbox"
+                    checked={filters.assignee.includes("unassigned")}
+                    readOnly
+                  />
+                  <span>Unassigned</span>
+                </div>
+
+                {(space?.members || []).map((m) => (
+                  <div
+                    key={m.user.id}
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={() => toggleFilter("assignee", m.user.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.assignee.includes(m.user.id)}
+                      readOnly
+                    />
+                    <span>{m.user.userName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeFilter === "Status" && (
+              <div className="space-y-2">
+                {boardColumns.map((col) => (
+  <div
+    key={col.id}
+    className="flex items-center gap-2 cursor-pointer"
+    onClick={() => toggleFilter("status", col.id)}
+  >
+    <input
+      type="checkbox"
+      checked={filters.status.includes(col.id)}
+      readOnly
+    />
+    <span>{col.name}</span>
+  </div>
+))}                                                                                             
+              </div>
+            )}
+
+            {activeFilter === "Priority" && (
+              <div className="space-y-2">
+                {["LOW", "MEDIUM", "HIGH"].map((p) => (
+                  <div
+                    key={p}
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={() => toggleFilter("priority", p)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.priority.includes(p)}
+                      readOnly
+                    />
+                    <span>{p}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeFilter === "Sprint" && (
+              <div className="space-y-2">
+                {allSprints.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={() => toggleFilter("sprint", s.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.sprint.includes(s.id)}
+                      readOnly
+                    />
+                    <span>{s.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* FOOTER */}
+            {activeFilter && (
+              <div className="flex justify-between border-t pt-2 mt-3">
+                <button
+                  className="text-sm text-blue-600"
+                  onClick={() => {
+                    switch (activeFilter) {
+                      case "Status":
+                        setFilters(prev => ({ ...prev, status: [] }));
+                        break;
+                      case "Priority":
+                        setFilters(prev => ({ ...prev, priority: [] }));
+                        break;
+                      case "Assignee":
+                        setFilters(prev => ({ ...prev, assignee: [] }));
+                        break;
+                      case "Sprint":
+                        setFilters(prev => ({ ...prev, sprint: [] }));
+                        break;
+                    }
+                  }}
+                >
+                  Clear all
+                </button>
+
+                <span className="text-xs text-muted-foreground">
+  {activeFilter === "Status" &&
+    `${filters.status.length} out of ${boardColumns.length} selected`}
+
+  {activeFilter === "Priority" &&
+    `${filters.priority.length} out of 3 selected`}
+
+  {activeFilter === "Assignee" &&
+    `${filters.assignee.length} out of ${(space?.members?.length || 0) + 1} selected`}
+
+  {activeFilter === "Sprint" &&
+    `${filters.sprint.length} out of ${allSprints.length} selected`}
+</span>
+              </div>
+            )}
+          </div>
+        </div>
+        </div>
+      )}
+    </div>
+
+    {/* ✅ GLOBAL CLEAR FILTERS */}
+    {totalFilters > 0 && (
+      <button
+        onClick={() =>
+          setFilters({
+            status: [],
+            priority: [],
+            assignee: [],
+            sprint: [],
+          })
+        }
+        className="text-sm text-red-600 hover:underline"
+      >
+        Clear filters
+      </button>
+    )}
   </div>
 
   {/* RIGHT SIDE */}
@@ -233,17 +508,46 @@ if (searchQuery.trim() !== "") {
     <CreateSprintDialog spaceId={space.id} onSuccess={fetchData} />
     <CreateWorkItemDialog spaceId={space.id} onSuccess={fetchData} />
   </div>
+
 </div>
         {allSprints.map((sprint) => {
           let sprintItems = workItems.filter(item => item.sprintId === sprint.id);
 
-          // 🔍 Apply search to sprint items
+          // 🔍 SEARCH
           if (searchQuery.trim() !== "") {
             sprintItems = sprintItems.filter(item =>
               item.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
               item.key?.toLowerCase().includes(searchQuery.toLowerCase()) ||
               item.priority?.toLowerCase().includes(searchQuery.toLowerCase()) ||
               item.assignee?.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          }
+          
+          // ✅ APPLY SAME FILTERS
+          if (filters.status.length > 0) {
+            sprintItems = sprintItems.filter(item =>
+              filters.status.includes(item.boardColumnId)
+            );
+          }
+          
+          if (filters.priority.length > 0) {
+            sprintItems = sprintItems.filter(item =>
+              item.priority && filters.priority.includes(item.priority.toUpperCase())
+            );
+          }
+          
+          if (filters.assignee.length > 0) {
+            sprintItems = sprintItems.filter(item => {
+              if (!item.assignee) {
+                return filters.assignee.includes("unassigned");
+              }
+              return filters.assignee.includes(item.assignee.id);
+            });
+          }
+          
+          if (filters.sprint.length > 0) {
+            sprintItems = sprintItems.filter(item =>
+              item.sprintId && filters.sprint.includes(item.sprintId)
             );
           }
 
