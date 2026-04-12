@@ -20,7 +20,6 @@ import { EditWorkItemDialog } from "@/components/EditWorkItemDialog";
 import { Space, WorkItem } from "@/types";
 import { rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GET_WORK_ITEM_DETAILS } from "@/lib/queries";
 import { useSortable,SortableContext,} from "@dnd-kit/sortable";
 import { Input } from "@/components/ui/input";
 import {
@@ -215,23 +214,6 @@ const toggleFilter = (type: keyof typeof filters, value: string) => {
   });
 };
 
-
-  useEffect(() => {
-    const test = async () => {
-      const client = getGraphQLClient(token || undefined);
-  
-      const res = await client.request(GET_WORK_ITEM_DETAILS, {
-        id: "28f2bbb1-e8c7-4a93-b412-8930479a925b",
-      });
-  
-      console.log("DETAILS:", res);
-    };
-  
-    if (token) {
-      test();
-    }
-  }, [token]);
-  
   const handleDeleteItem = async () => {
     if (!deletingItem) return;
 
@@ -510,30 +492,11 @@ const toggleFilter = (type: keyof typeof filters, value: string) => {
   };
 
   const addComment = useMutation({
-  mutationFn: async (data: { workItemId: string; commentText: string }) => {
-    const token = localStorage.getItem("token"); // 🔥 get token
-
-    const response = await fetch("https://localhost:7151/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // 🔥 THIS FIXES AUTH
-      },
-      body: JSON.stringify({
-        query: ADD_WORK_ITEM_COMMENT,
-        variables: data,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (result.errors) {
-      throw new Error(result.errors[0].message);
-    }
-
-    return result.data;
-  },
-});
+    mutationFn: async (data: { workItemId: string; commentText: string }) => {
+      const client = getGraphQLClient(token || undefined);
+      return client.request(ADD_WORK_ITEM_COMMENT, data);
+    },
+  });
 
   const handleSaveComment = async (item) => {
     try {

@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token');
+    const legacyToken = localStorage.getItem('token');
+    const storedToken = localStorage.getItem('auth_token') || legacyToken;
     const storedUser = localStorage.getItem('auth_user');
 
     if (storedToken && storedUser) {
@@ -45,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout();
       } else {
         setToken(storedToken);
+        if (!localStorage.getItem('auth_token')) {
+          localStorage.setItem('auth_token', storedToken);
+        }
+        localStorage.removeItem('token');
         try {
           setUser(JSON.parse(storedUser));
         } catch {
@@ -58,12 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
 
-    // Cast as 'any' temporarily to bypass the missing property error 
-    // in the response type until you update authApi/AuthResponse
     const userData: User = {
       name: response.username,
       email: response.email,
-      jobTitle: (response as any).jobTitle || "" 
+      jobTitle: response.jobTitle || ""
     };
 
     setToken(response.token);
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem('auth_token', response.token);
     localStorage.setItem('auth_user', JSON.stringify(userData));
+    localStorage.removeItem('token');
   };
 
   const register = async (username: string, email: string, password: string) => {
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('token');
   };
 
   return (

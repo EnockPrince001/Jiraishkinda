@@ -1,4 +1,4 @@
-const IDENTITY_API_URL = 'https://localhost:7275';
+const IDENTITY_API_URL = '';
 export interface LoginRequest {
   email: string;
   password: string;
@@ -12,8 +12,10 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   token: string;
+  expiration: string;
   email: string;
   username: string;
+  jobTitle?: string | null;
 }
 
 export interface ForgotPasswordRequest {
@@ -41,12 +43,7 @@ export const authApi = {
       throw new Error(error.message || 'Invalid email or password');
     }
 
-    const result = await response.json();
-
-    // 🔥 SAVE TOKEN HERE
-    localStorage.setItem("token", result.token);
-    
-    return result;
+    return response.json();
   },
 
   async register(data: RegisterRequest): Promise<void> {
