@@ -1,4 +1,4 @@
-const IDENTITY_API_URL = '';
+const IDENTITY_API_URL = import.meta.env.VITE_IDENTITY_API_URL;
 export interface LoginRequest {
   email: string;
   password: string;
